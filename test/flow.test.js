@@ -8,6 +8,7 @@ import { createApp } from '../src/server.js';
 import { createMockRunner } from '../src/claude.js';
 import { openDb } from '../src/db.js';
 import { createBudget } from '../src/budget.js';
+import { rulesFor, covered, parseRules, claudeCodeRules } from '../src/permissions.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'boardroom-test-'));
 const until = async (fn, ms = 4000) => {
@@ -213,5 +214,84 @@ test('the CEO talks to the manager, who briefs the team and queues the work', as
   await until(() => prompts.some((p) => p.kind === 'build') && prompts.some((p) => p.kind === 'ideate'));
   assert.match(prompts.find((p) => p.kind === 'build').prompt, /Standing guidance from the CEO[\s\S]*usable on a phone/);
   assert.match(prompts.find((p) => p.kind === 'ideate').prompt, /CEO: Everything must work on a phone/);
+  close();
+});
+
+test('a blocked command becomes a request, and allowing it sends the task back with the rule', async () => {
+  const allowed = [];
+  const base = createMockRunner({ delay: 5 });
+  let blocked = true;
+  const runner = async (o) => {
+    const res = await base(o);
+    if (o.kind === 'build') {
+      allowed.push(o.allowedTools);
+      if (blocked) res.denials = [{ tool: 'Bash', command: 'cd app && python3 -m pytest tests/ | tail -5' }, { tool: 'Bash', command: 'docker exec web ls' }];
+    }
+    if (o.kind === 'review') res.structured = blocked ? { verdict: 'revise', notes: 'Nothing was verified.' } : { verdict: 'approve', notes: 'Verified.' };
+    return res;
+  };
+  const { db, orch, close } = company(runner);
+  const id = orch.createProject({ name: 'Blocked', devs: 1, max_iterations: 1 });
+  orch.addDirective(id, { title: 'Run the tests' });
+  orch.setStatus(id, 'active');
+  await until(() => db.get('SELECT status FROM tasks').status === 'escalated');
+
+  const requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending' ORDER BY id");
+  assert.deepEqual(requests.map((r) => r.rule), ['Bash(python3 *)', 'Bash(tail *)', 'Bash(docker exec *)'], 'one request per rule, however often it is denied');
+  blocked = false;
+  orch.decidePermission(requests[1].id, false);
+  orch.decidePermission(requests[0].id, true);
+  assert.equal(db.get('SELECT status FROM tasks').status, 'escalated', 'the task waits while another request from it is open');
+  orch.decidePermission(requests[2].id, true);
+  await until(() => db.get('SELECT status FROM tasks').status === 'done');
+  assert.match(allowed.at(-1), /Bash\(python3 \*\),Bash\(docker exec \*\)$/);
+  assert.match(allowed.at(-1), /^Read,Edit/, 'the default rules stay');
+  close();
+});
+
+test('permission rules are derived, compared and read from Claude Code settings', () => {
+  assert.deepEqual(rulesFor({ tool: 'Bash', command: 'FOO=1 git push origin main; echo done' }), ['Bash(git push *)']);
+  assert.deepEqual(rulesFor({ tool: 'WebFetch' }), ['WebFetch']);
+  assert.ok(covered('Bash(git push *)', ['Bash(git *)']));
+  assert.ok(!covered('Bash(gitx *)', ['Bash(git *)']));
+  assert.deepEqual(parseRules('Read, Bash(a, b *),Edit'), ['Read', 'Bash(a, b *)', 'Edit']);
+
+  const home = tmp();
+  const work = tmp();
+  fs.mkdirSync(path.join(home, '.claude'));
+  fs.mkdirSync(path.join(work, '.claude'));
+  fs.writeFileSync(path.join(home, '.claude', 'settings.json'), JSON.stringify({ permissions: { allow: ['Bash(python3 *)'] } }));
+  fs.writeFileSync(path.join(work, '.claude', 'settings.local.json'), JSON.stringify({ permissions: { allow: ['Bash(make *)'] } }));
+  fs.writeFileSync(path.join(home, '.claude.json'), JSON.stringify({ projects: { '/elsewhere/shop': { allowedTools: ['Bash(curl *)', 'Bash(python3 *)'] } } }));
+  assert.deepEqual(claudeCodeRules(work, path.join(home, '.claude')), [
+    { rule: 'Bash(make *)', source: 'This folder' },
+    { rule: 'Bash(python3 *)', source: 'Your Claude Code settings' },
+    { rule: 'Bash(curl *)', source: 'Allowed in shop' },
+  ]);
+});
+
+test('developers inherit what the CEO allows Claude Code, unless the project opts out', async () => {
+  const seen = [];
+  const base = createMockRunner({ delay: 5 });
+  const runner = (o) => {
+    if (o.kind === 'build') seen.push({ tools: o.allowedTools, mode: o.permissionMode });
+    return base(o);
+  };
+  const { db, orch, configDir, close } = company(runner);
+  fs.writeFileSync(path.join(configDir, 'settings.json'), JSON.stringify({ permissions: { allow: ['Bash(python3 *)', 'Bash(docker *)'], defaultMode: 'auto' } }));
+
+  const id = orch.createProject({ name: 'Heir', devs: 1 });
+  orch.addDirective(id, { title: 'First' });
+  orch.setStatus(id, 'active');
+  await until(() => seen.length === 1);
+  assert.match(seen[0].tools, /Bash\(python3 \*\),Bash\(docker \*\)$/);
+  assert.equal(seen[0].mode, 'auto');
+
+  const own = orch.createProject({ name: 'Strict', devs: 1, inherit_claude: '0' });
+  orch.addDirective(own, { title: 'Second' });
+  orch.setStatus(own, 'active');
+  await until(() => seen.length === 2);
+  assert.doesNotMatch(seen[1].tools, /python3/);
+  assert.equal(seen[1].mode, 'acceptEdits');
   close();
 });

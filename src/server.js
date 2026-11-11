@@ -10,6 +10,7 @@ import { createOrchestrator, DEFAULT_DEV_TOOLS } from './orchestrator.js';
 import { createHistory, transcriptText } from './history.js';
 import { pickFolder, revealFolder } from './native.js';
 import { unzipEntry } from './zip.js';
+import { execFileSync } from 'node:child_process';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -19,7 +20,7 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
   const bus = new EventEmitter();
   bus.setMaxListeners(100);
   const budget = createBudget(db);
-  const orch = createOrchestrator({ db, budget, runner, bus, dataDir: dataDir === ':memory:' ? fs.mkdtempSync('/tmp/boardroom-') : dataDir });
+  const orch = createOrchestrator({ db, budget, runner, bus, configDir, dataDir: dataDir === ':memory:' ? fs.mkdtempSync('/tmp/boardroom-') : dataDir });
   const history = createHistory(db, configDir ? { configDir } : undefined);
   orch.recover();
 
@@ -43,13 +44,14 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
         proposed: count("SELECT COUNT(*) AS n FROM ideas WHERE project_id = ? AND status = 'proposed'"),
         open: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('queued','in_progress','review','changes')"),
         done: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status = 'done'"),
-        attention: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('escalated','failed')"),
+        attention: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('escalated','failed')") + count("SELECT COUNT(*) AS n FROM permission_requests WHERE project_id = ? AND status = 'pending'"),
         working: agents.filter((a) => a.job).length,
         headcount: agents.length,
         agents,
       };
     });
     const inbox = [
+      ...db.all("SELECT r.*, p.name AS project_name, a.name AS agent_name FROM permission_requests r JOIN projects p ON p.id = r.project_id LEFT JOIN agents a ON a.id = r.agent_id WHERE r.status = 'pending' ORDER BY r.id").map((r) => ({ kind: 'permission', ...r })),
       ...db.all("SELECT t.*, p.name AS project_name FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.status IN ('escalated','failed') ORDER BY t.id").map((t) => ({ kind: 'task', ...t })),
       ...db.all("SELECT i.*, p.name AS project_name FROM ideas i JOIN projects p ON p.id = i.project_id WHERE i.status = 'proposed' ORDER BY i.id").map((i) => ({ kind: 'idea', ...i })),
     ];
@@ -75,7 +77,8 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     const project = db.get('SELECT * FROM projects WHERE id = ?', id);
     if (!project) throw httpError(404, 'Project not found.');
     return {
-      project: { ...project, default_tools: DEFAULT_DEV_TOOLS },
+      project: { ...project, default_tools: DEFAULT_DEV_TOOLS, tools: orch.toolsOf(project), own_tools: orch.ownTools(project), inherited: orch.inherited(project).rules, run_mode: orch.modeOf(project), is_git: fs.existsSync(path.join(project.workdir, '.git')) },
+      permissions: db.all("SELECT r.*, a.name AS agent_name FROM permission_requests r LEFT JOIN agents a ON a.id = r.agent_id WHERE r.project_id = ? AND r.status = 'pending' ORDER BY r.id", id),
       agents: agentsOf(id),
       ideas: db.all("SELECT * FROM ideas WHERE project_id = ? AND (status IN ('proposed', 'design') OR author = 'pm') ORDER BY status = 'proposed' DESC, id DESC LIMIT 40", id),
       tasks: db.all("SELECT t.*, i.effort FROM tasks t LEFT JOIN ideas i ON i.id = t.idea_id WHERE t.project_id = ? AND t.status != 'cancelled' ORDER BY t.id DESC LIMIT 120", id),
@@ -96,6 +99,17 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     ['POST', /^\/api\/projects\/(\d+)\/messages$/, ({ m, body }) => ({ id: orch.tell(+m[1], body.text) })],
     ['POST', /^\/api\/projects\/(\d+)\/directives$/, ({ m, body }) => orch.addDirective(+m[1], body)],
     ['POST', /^\/api\/ideas\/(\d+)\/(approve|reject)$/, ({ m, body }) => orch.decideIdea(+m[1], m[2] === 'approve', 'ceo', String(body.reason || '').slice(0, 500))],
+    ['POST', /^\/api\/permissions\/(\d+)\/(allow|ignore)$/, ({ m }) => orch.decidePermission(+m[1], m[2] === 'allow')],
+    ['POST', /^\/api\/projects\/(\d+)\/git-init$/, ({ m }) => {
+      const project = db.get('SELECT workdir FROM projects WHERE id = ?', +m[1]);
+      if (!project) throw httpError(404, 'Project not found.');
+      try {
+        execFileSync('git', ['init', '-q'], { cwd: project.workdir });
+      } catch {
+        throw httpError(500, 'git init failed. Is git installed?');
+      }
+      bus.emit('change', {});
+    }],
     ['POST', /^\/api\/pick-folder$/, async () => ({ path: await pickFolder() })],
     ['POST', /^\/api\/projects\/(\d+)\/reveal$/, ({ m }) => {
       const project = db.get('SELECT workdir FROM projects WHERE id = ?', +m[1]);

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { IDEAS_SCHEMA, REVIEW_SCHEMA, CHAT_SCHEMA, chatPrompt, ideatePrompt, designPrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
 import { createRoles } from './roles.js';
+import { parseRules, rulesFor, covered, claudeCodeRules, claudeCodeMode } from './permissions.js';
 
 export const DEFAULT_DEV_TOOLS =
   'Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git add *),Bash(git commit *),Bash(npm test *),Bash(npm run *)';
@@ -13,7 +14,7 @@ const OPEN = ['queued', 'in_progress', 'review', 'changes', 'escalated'];
 const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken'];
 const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
 
-export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () => Date.now() }) {
+export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir, now = () => Date.now() }) {
   /** agentId -> { kind, taskId, since, abort } */
   const busy = new Map();
   /** projectId -> timestamp; set after a failed PM run so a broken setup does not burn the budget */
@@ -26,6 +27,80 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
     row.id = db.insert('events', row);
     bus.emit('change', { projectId });
   };
+
+  // ---- permissions ----------------------------------------------------
+
+  const ownTools = (project) => parseRules(project.allowed_tools || DEFAULT_DEV_TOOLS);
+
+  // What the person already allows Claude Code to do. Read from their settings, at most every ten seconds per folder.
+  const inheritedCache = new Map();
+  function inherited(project) {
+    if (!project.inherit_claude) return { rules: [], mode: null };
+    const hit = inheritedCache.get(project.workdir);
+    if (hit && hit.at > Date.now() - 10_000) return hit.value;
+    const value = { rules: claudeCodeRules(project.workdir, configDir), mode: claudeCodeMode(project.workdir, configDir) };
+    inheritedCache.set(project.workdir, { at: Date.now(), value });
+    return value;
+  }
+
+  /** Everything a developer may run: the project's own rules plus, when inheriting, the person's Claude Code rules. */
+  const toolsOf = (project) => [...new Set([...ownTools(project), ...inherited(project).rules.map((r) => r.rule)])];
+
+  /** Developers work in the mode the person uses for Claude Code when it is a looser one, else they may edit files only. */
+  function modeOf(project) {
+    if (project.permission_mode === 'bypassPermissions') return 'bypassPermissions';
+    const theirs = inherited(project).mode;
+    return theirs === 'bypassPermissions' || theirs === 'auto' ? theirs : 'acceptEdits';
+  }
+
+  /** A developer was denied a command. Ask the CEO once per rule whether the team may use it. */
+  function recordDenials(project, agent, task, denials) {
+    const have = toolsOf(project);
+    for (const denial of denials) {
+      for (const rule of rulesFor(denial)) {
+        if (covered(rule, have)) continue;
+        if (db.get('SELECT id FROM permission_requests WHERE project_id = ? AND rule = ?', project.id, rule)) continue;
+        db.insert('permission_requests', {
+          project_id: project.id,
+          task_id: task?.id ?? null,
+          agent_id: agent?.id ?? null,
+          rule,
+          example: clip(denial.command || denial.detail || denial.tool, 400),
+          ts: now(),
+        });
+        emit(project.id, 'error', `${agent?.name ?? 'An agent'} was not allowed to run ${rule}. The CEO can allow it.`, { taskId: task?.id, agentId: agent?.id });
+      }
+    }
+  }
+
+  function addRules(projectId, rules) {
+    const project = db.get('SELECT * FROM projects WHERE id = ?', projectId);
+    if (!project) throw new Error('Project not found.');
+    const next = [...new Set([...ownTools(project), ...rules.map((r) => String(r).trim()).filter(Boolean)])];
+    db.update('projects', projectId, { allowed_tools: next.join(',') });
+    return next;
+  }
+
+  /** The CEO rules on a request. Allowing adds the rule to the project and gives blocked tasks another go. */
+  function decidePermission(requestId, allow) {
+    const req = db.get('SELECT * FROM permission_requests WHERE id = ?', requestId);
+    if (!req || req.status !== 'pending') throw new Error('This request is already decided.');
+    db.update('permission_requests', requestId, { status: allow ? 'allowed' : 'ignored' });
+    if (allow) {
+      addRules(req.project_id, [req.rule]);
+      emit(req.project_id, 'ceo', `The CEO allowed the team to use ${req.rule}.`);
+      // The task that hit the wall goes back to its developer, unless more requests from it still wait.
+      const task = req.task_id ? db.get('SELECT * FROM tasks WHERE id = ?', req.task_id) : null;
+      const stillWaiting = req.task_id ? db.get("SELECT COUNT(*) AS n FROM permission_requests WHERE task_id = ? AND status = 'pending'", req.task_id).n : 0;
+      if (task && !stillWaiting && ['escalated', 'failed'].includes(task.status)) {
+        const note = `The CEO has now allowed commands that were blocked before (${req.rule} and any others granted). Run the verification steps you could not run and finish the task.`;
+        setTask(task, { status: task.report ? 'changes' : 'queued', iteration: 0, failures: 0, review_notes: [task.review_notes, note].filter(Boolean).join('\n\n') });
+        emit(req.project_id, 'ceo', `“${task.title}” goes back to the developers with the new permission.`, { taskId: task.id });
+      }
+    }
+    bus.emit('change', { projectId: req.project_id });
+    tick();
+  }
 
   // ---- projects ---------------------------------------------------------
 
@@ -62,6 +137,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
     if (['acceptEdits', 'bypassPermissions'].includes(patch.permission_mode)) next.permission_mode = patch.permission_mode;
     if (typeof patch.allowed_tools === 'string') next.allowed_tools = patch.allowed_tools.trim();
     if (typeof patch.model === 'string') next.model = patch.model.trim();
+    if (patch.inherit_claude !== undefined) next.inherit_claude = ['1', 'true', 1, true].includes(patch.inherit_claude) ? 1 : 0;
     const int = (key, lo, hi) => {
       if (patch[key] !== undefined && patch[key] !== '') next[key] = Math.min(hi, Math.max(lo, Math.round(Number(patch[key])) || lo));
     };
@@ -276,6 +352,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
         // The project may have been deleted while the run was in flight.
         if (db.get('SELECT id FROM projects WHERE id = ?', project.id)) {
           if (!res.ok) emit(project.id, 'error', `${agent?.name ?? 'Run'} failed: ${res.error}`, ctx);
+          if (kind === 'build' && res.denials?.length) recordDenials(db.get('SELECT * FROM projects WHERE id = ?', project.id), agent, task, res.denials);
           onDone(res);
         }
         bus.emit('change', { projectId: project.id });
@@ -376,8 +453,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
       options: {
         prompt,
         resume,
-        permissionMode: project.permission_mode,
-        allowedTools: project.allowed_tools || DEFAULT_DEV_TOOLS,
+        permissionMode: modeOf(project),
+        allowedTools: toolsOf(project).join(','),
         maxTurns: project.max_turns,
       },
       onDone(res) {
@@ -519,7 +596,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
 
   return {
     createProject, updateProject, setStatus, deleteProject,
-    decideIdea, addDirective, ruleTask, summarize, tell,
+    decideIdea, addDirective, ruleTask, summarize, tell, decidePermission, addRules, toolsOf, ownTools, inherited, modeOf,
     tick, recover,
     busy: () => busy,
   };

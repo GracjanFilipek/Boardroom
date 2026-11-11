@@ -101,6 +101,18 @@ CREATE TABLE IF NOT EXISTS chats (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS chats_external ON chats(source, external_id);
 
+CREATE TABLE IF NOT EXISTS permission_requests (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  task_id INTEGER,
+  agent_id INTEGER,
+  rule TEXT NOT NULL,                             -- e.g. Bash(python3 *)
+  example TEXT NOT NULL DEFAULT '',               -- the call that was denied
+  status TEXT NOT NULL DEFAULT 'pending',         -- pending | allowed | ignored
+  ts INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS permission_rule ON permission_requests(project_id, rule);
+
 CREATE TABLE IF NOT EXISTS messages (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -129,6 +141,7 @@ export function openDb(dataDir) {
   raw.exec(SCHEMA);
   // Databases created before the designer joined lack this column.
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'memo')) raw.exec("ALTER TABLE projects ADD COLUMN memo TEXT NOT NULL DEFAULT ''");
+  if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'inherit_claude')) raw.exec('ALTER TABLE projects ADD COLUMN inherit_claude INTEGER NOT NULL DEFAULT 1');
   if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();

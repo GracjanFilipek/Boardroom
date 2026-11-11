@@ -160,7 +160,7 @@ function sidebar(r) {
   return h('nav', { id: 'sidebar', 'aria-label': 'Company' },
     h('div', { class: 'brand' },
       h('div', { class: 'brand-mark' }, icon('crown')),
-      h('div', { class: 'brand-name' }, 'Boardroom', h('small', null, runner === 'mock' ? 'Demo mode' : 'Claude headless'))),
+      h('div', { class: 'brand-name' }, 'Boardroom', runner === 'mock' ? h('small', null, 'Demo mode') : null)),
     h('button', { class: 'jump', onclick: palette }, icon('search'), h('span', null, 'Jump to…'), h('kbd', null, navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl K')),
     h('div', { class: 'nav' },
       h('span', { class: 'pill', 'data-keep-style': true }),
@@ -300,7 +300,7 @@ function boardView() {
       h('div', null,
         h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', inbox.length ? h('span', { class: 'count hot' }, String(inbox.length)) : null)),
         inbox.length
-          ? h('div', { class: 'stack' }, inbox.map((item, i) => (item.kind === 'idea' ? ideaCard(item, true, i) : attentionCard(item, true, i))))
+          ? h('div', { class: 'stack' }, inbox.map((item, i) => (item.kind === 'idea' ? ideaCard(item, true, i) : item.kind === 'permission' ? permissionCard(item, true, i) : attentionCard(item, true, i))))
           : empty('check', 'Your desk is clear', 'Proposals and escalated tasks land here.')),
       h('div', null,
         h('div', { class: 'section-head' }, h('h2', null, 'Live')),
@@ -362,6 +362,25 @@ function rejectSheet(idea) {
   });
 }
 
+/** A developer hit a command it may not run. One press lets the whole team use it on this project. */
+function permissionCard(req, showProject, i = 0) {
+  const decide = (verb) => () => act(async () => {
+    await api('POST', `/api/permissions/${req.id}/${verb}`);
+    if (verb === 'allow') toast(`The team may now use ${ruleLabel(req.rule)}.`, 'check');
+  });
+  return h('article', { class: 'card decision enter', 'data-key': `perm${req.id}`, 'data-flip': `perm${req.id}`, style: `--i:${Math.min(i, 6)}` },
+    h('div', { class: 'decision-head' },
+      h('span', { class: 'tile xs' }, icon('sliders')),
+      h('strong', null, req.agent_name ?? 'A developer'), 'was blocked',
+      showProject ? h('span', { class: 'chip accent' }, req.project_name) : null,
+      h('span', null, ago(req.ts))),
+    h('h3', null, 'Allow ', h('span', { class: 'mono' }, ruleLabel(req.rule)), '?'),
+    req.example ? h('p', { class: 'pitch' }, 'It tried to run: ', h('span', { class: 'mono' }, req.example)) : null,
+    h('div', { class: 'actions' },
+      h('button', { class: 'btn go', onclick: decide('allow') }, icon('check'), 'Allow for this project'),
+      h('button', { class: 'btn', onclick: decide('ignore') }, 'Keep it blocked')));
+}
+
 function attentionCard(task, showProject, i = 0) {
   const rule = (action) => () => act(() => api('POST', `/api/tasks/${task.id}/${action}`));
   const escalated = task.status === 'escalated';
@@ -414,7 +433,7 @@ function timelineItem(e, { compact = false, project, role, name } = {}) {
 // ---- project ----------------------------------------------------------------
 
 function projectView(r) {
-  const { project: p, agents, ideas, tasks, events, handovers, spend, messages: talk } = S.detail;
+  const { project: p, agents, ideas, tasks, events, handovers, spend, messages: talk, permissions } = S.detail;
   const summary = S.state.projects.find((x) => x.id === p.id) ?? { ...p, working: 0 };
   const pm = agents.find((a) => a.role === 'pm');
   const designer = agents.find((a) => a.role === 'designer');
@@ -461,9 +480,11 @@ function projectView(r) {
         h('button', { class: 'btn icon-only', 'aria-label': 'Project settings', onclick: () => projectForm(p, devs.length) }, icon('sliders')))),
     h('p', { class: 'lede' }, p.brief ? (p.brief.length > 240 ? `${p.brief.slice(0, 240)}…` : p.brief) : 'No brief yet. Open settings and tell the project manager what this project is for.'),
     holdBanner(),
+    p.is_git ? null : h('div', { class: 'banner' }, icon('alert'), h('div', { style: 'flex:1' }, h('strong', null, 'This folder is not a git repository. '), 'Developers cannot commit their work, and the manager cannot review a diff.'),
+      h('button', { class: 'btn small', onclick: () => act(() => api('POST', `/api/projects/${p.id}/git-init`)) }, 'Set up git here')),
     h('div', { class: 'tabs', role: 'tablist' },
       h('span', { class: 'pill', 'data-keep-style': true }),
-      tab('overview', 'Overview', proposed.length + attention.length, true),
+      tab('overview', 'Overview', proposed.length + attention.length + permissions.length, true),
       tab('manager', 'Manager', talk.filter((m) => m.role === 'ceo' && !m.answered).length),
       tab('board', 'Board', openTasks.length),
       tab('activity', 'Activity'),
@@ -576,9 +597,9 @@ function projectView(r) {
           h('div', { class: 'org-children' }, devs.map((d) => h('div', { class: `org-child${d.job ? ' live' : ''}` }, node('dev', d.name, 'Developer', d))))))),
       h('div', { class: 'split' },
         h('div', null,
-          h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length)) : null)),
-          proposed.length + attention.length
-            ? h('div', { class: 'stack' }, attention.map((t, i) => attentionCard(t, false, i)), proposed.map((idea, i) => ideaCard(idea, false, i)))
+          h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length + permissions.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length + permissions.length)) : null)),
+          proposed.length + attention.length + permissions.length
+            ? h('div', { class: 'stack' }, permissions.map((r, i) => permissionCard(r, false, i)), attention.map((t, i) => attentionCard(t, false, i)), proposed.map((idea, i) => ideaCard(idea, false, i)))
             : inDesign.length
               ? empty('idea', `${inDesign.length} ${inDesign.length === 1 ? 'proposal is' : 'proposals are'} with the designer`, 'You see each one once its design spec is written.')
             : p.approval === 'auto'
@@ -592,6 +613,48 @@ function projectView(r) {
         h('button', { class: 'btn quiet', onclick: () => revealFolder(p) }, icon('archive'), FILES_APP ? `Show in ${FILES_APP}` : 'Open folder')));
   }
   return h('div', { 'data-view': `project-${p.id}-${r.tab}` }, header, body);
+}
+
+const COMMON_COMMANDS = ['python3', 'pytest', 'pip', 'node', 'npx', 'make', 'docker', 'curl', 'cargo', 'go', 'git push'];
+const ruleLabel = (rule) => rule.match(/^Bash\((.+) \*\)$/)?.[1] ?? rule;
+
+/** What developers may run: by default whatever you already allow Claude Code, plus chips for this project. */
+function rulesEditor(p) {
+  let rules = [...p.own_tools];
+  const hidden = h('input', { type: 'hidden', name: 'allowed_tools', value: rules.join(',') });
+  const inherit = h('select', { name: 'inherit_claude', 'aria-label': 'Permissions source', onchange: () => paint() },
+    h('option', { value: '1', selected: Boolean(p.inherit_claude) }, 'Same permissions I give Claude Code, plus the list below'),
+    h('option', { value: '0', selected: !p.inherit_claude }, 'Only the list below'));
+  const box = h('div', { class: 'rules' });
+  const custom = h('input', { placeholder: 'Other command, e.g. poetry or Bash(terraform plan *)', 'aria-label': 'Add a command' });
+  const add = (rule) => {
+    const full = /[()]/.test(rule) || /^[A-Z]/.test(rule) ? rule : `Bash(${rule} *)`;
+    if (!rules.includes(full)) rules.push(full);
+    paint();
+  };
+  const paint = () => {
+    hidden.value = rules.join(',');
+    const on = inherit.value === '1';
+    const theirs = p.inherited.filter((r) => !rules.includes(r.rule));
+    const missing = COMMON_COMMANDS.filter((c) => !rules.includes(`Bash(${c} *)`) && !(on && theirs.some((r) => r.rule === `Bash(${c} *)`)));
+    box.replaceChildren(
+      on ? h('div', { class: 'rule-add' }, h('span', { class: 'label' }, 'From Claude Code'),
+        theirs.length
+          ? [theirs.slice(0, 60).map((r) => h('span', { class: 'rule fixed', title: r.source }, ruleLabel(r.rule))), theirs.length > 60 ? h('span', { class: 'small muted' }, `and ${theirs.length - 60} more`) : null]
+          : h('span', { class: 'small muted' }, 'No allow rules found in your Claude Code settings yet. Anything you allow there later applies here too.')) : null,
+      h('div', { class: 'rule-list' }, h('span', { class: 'label' }, 'This project'), rules.map((rule) =>
+        h('span', { class: 'rule' }, ruleLabel(rule), h('button', { type: 'button', 'aria-label': `Remove ${ruleLabel(rule)}`, onclick: () => { rules = rules.filter((r) => r !== rule); paint(); } }, icon('x'))))),
+      missing.length ? h('div', { class: 'rule-add' }, h('span', { class: 'label' }, 'Add'), missing.map((c) => h('button', { type: 'button', class: 'rule ghost', onclick: () => add(c) }, icon('plus'), c))) : null);
+  };
+  paint();
+  return h('div', { class: 'field' },
+    h('span', null, 'What developers may run'),
+    inherit, hidden, box,
+    h('div', { class: 'pick' }, custom,
+      h('button', { type: 'button', class: 'btn', onclick: () => { if (custom.value.trim()) add(custom.value.trim()); custom.value = ''; } }, 'Add')),
+    h('small', null, p.run_mode === 'acceptEdits'
+      ? 'When a developer is blocked on a command, a request lands on your Desk and one press allows it.'
+      : `Your Claude Code runs in ${p.run_mode === 'auto' ? 'auto' : 'skip-all-checks'} mode, so developers do too.`));
 }
 
 function directiveSheet(p) {
@@ -643,7 +706,7 @@ function projectForm(p, devCount = 2) {
     h('h3', null, 'Developer permissions'),
     h('label', { class: 'field' }, h('span', null, 'Mode'), select('permission_mode', [['acceptEdits', 'Edit files, run listed commands'], ['bypassPermissions', 'Skip all permission checks']], v.permission_mode),
       h('small', null, 'Skipping checks lets developers run any shell command. Use it only in a sandbox.')),
-    h('label', { class: 'field' }, h('span', null, 'Allowed tools'), h('input', { name: 'allowed_tools', value: v.allowed_tools, placeholder: p?.default_tools ?? 'Default: file tools, git, npm test, npm run' }), h('small', null, 'Claude Code permission rules, comma separated. Add your test command here, for example Bash(pytest *).')),
+    p ? rulesEditor(p) : null,
     h('label', { class: 'field' }, h('span', null, 'Model'), h('input', { name: 'model', value: v.model, placeholder: 'Default model of your Claude Code' })),
   );
   const submit = () => {

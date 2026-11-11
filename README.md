@@ -110,9 +110,15 @@ Open a chat and **hand it over** to a project. Claude can compress it into a bri
 
 ## What developers may do
 
-By default a developer can read and edit files in the project folder, use git locally (status, diff, log, add, commit) and run `npm test` and `npm run`. Other shell commands are denied, and the developer notes that in its report. Add your own rules in project settings, for example `Bash(pytest *)`.
+Developers get **the same permissions you give Claude Code**. Before each run Boardroom reads the allow rules from your Claude Code settings, from the project folder's `.claude` settings, and from the "always allow" answers Claude Code remembers for any folder, and passes them on. Allow something in Claude Code and the team has it on their next run. If your Claude Code runs in auto mode or skips permission checks, developers do too.
 
-"Skip all permission checks" maps to `--dangerously-skip-permissions`. Use it inside a container or VM.
+On top of that each project has its own list. It starts with file tools, local git (status, diff, log, add, commit), `npm test` and `npm run`. In project settings you add commands such as `python3`, `docker` or `curl` with one press.
+
+When a developer is still blocked on a command, a request lands on your Desk: "Ada was blocked. Allow python3?" One press allows it for the project and sends the blocked task back to the developer.
+
+To keep a project strict, switch its settings to "Only the list below". "Skip all permission checks" maps to `--dangerously-skip-permissions`; use it inside a container or VM.
+
+If the project folder is not a git repository, the project page says so and offers to set git up, because developers cannot commit and the manager cannot review a diff without it.
 
 Several developers share one working tree. They are told to stage only their own files. For tasks that touch the same code, run one developer.
 

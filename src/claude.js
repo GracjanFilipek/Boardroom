@@ -65,6 +65,7 @@ export function runClaude(o) {
         out.structured = msg.structured_output ?? null;
         out.costUsd = msg.total_cost_usd ?? 0;
         out.turns = msg.num_turns ?? 0;
+        out.denials = (msg.permission_denials ?? []).map((d) => ({ tool: d.tool_name, command: d.tool_input?.command ?? '', detail: d.tool_input?.file_path ?? d.tool_input?.url ?? '' }));
         const u = msg.usage ?? {};
         out.inputTokens = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
         out.outputTokens = u.output_tokens ?? 0;
@@ -110,6 +111,7 @@ function describeTool(block) {
 export function createMockRunner({ delay = 900 } = {}) {
   let utilization = 0.02;
   let counter = 0;
+  let denied = false;
   const resetsAt = Math.floor(Date.now() / 1000) + 5 * 3600;
   const themes = ['Keyboard shortcuts', 'Empty states', 'CSV export', 'Onboarding checklist', 'Faster search', 'Undo for deletes', 'Weekly digest', 'Dark mode polish'];
 
@@ -171,6 +173,8 @@ export function createMockRunner({ delay = 900 } = {}) {
         },
       },
     });
-    return { ok: true, result, structured, sessionId: `mock-${n}`, costUsd: 0.08, inputTokens: 4200, outputTokens: 380, turns: 3, error: null, durationMs: delay };
+    // CORP_MOCK_DENY=1 makes the first demo build hit a blocked command, to show the permission request.
+    const denials = process.env.CORP_MOCK_DENY && o.kind === 'build' && !denied ? ((denied = true), [{ tool: 'Bash', command: 'python3 -m pytest tests/ -q' }]) : [];
+    return { ok: true, denials, result, structured, sessionId: `mock-${n}`, costUsd: 0.08, inputTokens: 4200, outputTokens: 380, turns: 3, error: null, durationMs: delay };
   };
 }

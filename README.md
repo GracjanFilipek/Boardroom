@@ -159,6 +159,7 @@ The server binds to `127.0.0.1` and has no login. It refuses cross-origin writes
 ```
 electron/main.js     desktop shell
 site/index.html      landing page, one self-contained file
+vercel.json          serves site/ on Vercel, no build step
 src/server.js        HTTP API, live updates, static files
 src/orchestrator.js  the loop: propose, approve, build, review, escalate
 src/claude.js        headless runner and its demo stand-in

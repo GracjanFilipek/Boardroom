@@ -33,6 +33,14 @@ npm run app:demo # same, with canned agents
 npm run dist     # builds an installer for your system into ./release
 ```
 
+### Installers for people who do not use git
+
+The repository builds its own installers on GitHub. Open the **Actions** tab, pick **Installers**, press **Run workflow**, and after about ten minutes download the `.exe` (Windows), `.dmg` (macOS) and `.AppImage` (Linux) from the run's page. Pushing a tag such as `v0.1.0` does the same and attaches the files to a Release, which gives you one download page to send people.
+
+The installers are not code-signed. Windows shows a SmartScreen warning ("More info", then "Run anyway"). macOS refuses to open the app on first try; right-click it and choose Open, or allow it under System Settings, Privacy & Security. Signing removes both warnings and needs a paid certificate from Microsoft and Apple.
+
+The person installing still needs Claude Code on their machine, logged in.
+
 The app runs the same server inside itself on a private local port, so nothing else needs to be started. It keeps its data in your user application folder, separate from `./data`. It looks for the `claude` binary in the usual install folders, since an app opened from the Dock or Start menu does not see your shell's `PATH`. Set `CLAUDE_BIN` if yours lives elsewhere.
 
 ## How work flows

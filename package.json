@@ -10,6 +10,46 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning src/server.js",
     "demo": "CORP_RUNNER=mock CORP_DATA_DIR=./data-demo node --disable-warning=ExperimentalWarning src/server.js",
-    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "app": "electron .",
+    "app:demo": "CORP_RUNNER=mock electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^45.3.0",
+    "electron-builder": "^26.18.0"
+  },
+  "main": "electron/main.js",
+  "author": "Agent Corp",
+  "build": {
+    "appId": "dev.agentcorp.app",
+    "productName": "Agent Corp",
+    "asar": false,
+    "files": [
+      "electron/**",
+      "src/**",
+      "public/**",
+      "package.json"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Development"
+    }
   }
 }

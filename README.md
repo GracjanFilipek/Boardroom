@@ -20,7 +20,18 @@ npm run demo     # same UI, canned agents, zero Claude calls
 npm test
 ```
 
-No dependencies to install. Data lives in `./data` (SQLite).
+The server has no dependencies. Data lives in `./data` (SQLite).
+
+### Desktop app
+
+```sh
+npm install      # fetches Electron, once
+npm run app      # opens Agent Corp in its own window
+npm run app:demo # same, with canned agents
+npm run dist     # builds an installer for your system into ./release
+```
+
+The app runs the same server inside itself on a private local port, so nothing else needs to be started. It keeps its data in your user application folder, separate from `./data`. It looks for the `claude` binary in the usual install folders, since an app opened from the Dock or Start menu does not see your shell's `PATH`. Set `CLAUDE_BIN` if yours lives elsewhere.
 
 ## How work flows
 
@@ -96,6 +107,7 @@ The server binds to `127.0.0.1` and has no login. It refuses cross-origin writes
 ## Layout
 
 ```
+electron/main.js     desktop shell
 src/server.js        HTTP API, live updates, static files
 src/orchestrator.js  the loop: propose, approve, build, review, escalate
 src/claude.js        headless runner and its demo stand-in

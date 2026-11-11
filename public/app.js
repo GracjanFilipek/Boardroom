@@ -777,6 +777,10 @@ async function chatSheet(s) {
 
 // ---- boot -------------------------------------------------------------------
 
+// The desktop shell passes ?shell=mac or ?shell=desktop so the page can make room for window controls.
+const shellKind = new URLSearchParams(location.search).get('shell');
+if (shellKind) document.documentElement.dataset.shell = shellKind;
+
 addEventListener('hashchange', () => {
   if (route().name === 'archive') S.sessions = null;
   render(); // paint the navigation at once, data follows

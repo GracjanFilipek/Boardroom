@@ -3,3 +3,4 @@ data/
 data-demo/
 *.log
 .DS_Store
+release/

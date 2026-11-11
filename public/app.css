@@ -425,6 +425,14 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
 .toast .icon { width: 10px; height: 10px; }
 .toast.out { opacity: 0; transform: translateY(6px); }
 
+/* ---- desktop shell ---- */
+[data-shell="mac"] #sidebar { padding-top: 2.9rem; }
+[data-shell="mac"] #sidebar, [data-shell="mac"] #topbar { -webkit-app-region: drag; }
+[data-shell] a, [data-shell] button, [data-shell] input { -webkit-app-region: no-drag; }
+[data-shell] body { user-select: none; }
+[data-shell] .tl-text, [data-shell] .plan, [data-shell] .msg, [data-shell] .mono, [data-shell] input, [data-shell] textarea, [data-shell] .pitch, [data-shell] h3 { user-select: text; }
+@media (max-width: 760px) { [data-shell="mac"] #topbar { padding-left: 5.4rem; } }
+
 /* ---- small screens ---- */
 @media (max-width: 1000px) {
   .split { grid-template-columns: 1fr; }

@@ -27,7 +27,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
   // Where each project lives on GitHub, refreshed in the background so prompts can name it.
   const repos = new Map();
   const refreshRepo = (project) => github?.status(project.workdir).then((st) => repos.set(project.id, st.missing ? null : st.web ?? st.remote)).catch(() => {});
-  const seen = (project) => ({ ...project, repo: repos.get(project.id) ?? null });
+  const seen = (project) => ({ ...project, repo: repos.get(project.id) ?? null, ceo: db.setting('ceo', {}).name || null });
 
   /** Sends approved work to GitHub. Booardroom does this itself, so no agent needs push rights. */
   async function publish(projectId, why) {

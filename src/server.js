@@ -59,6 +59,7 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
     ];
     return {
       runner: mock ? 'mock' : 'claude',
+      ceo: { name: '', asked: false, ...db.setting('ceo', {}) },
       budget: { config: budget.config(), windows: budget.windows(), gate: budget.gate(), today: budget.spentToday() },
       stats: {
         working: projects.reduce((n, p) => n + p.working, 0),
@@ -136,6 +137,11 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
       await orch.refreshRepo(project);
       bus.emit('change', { projectId: project.id });
       return out;
+    }],
+    ['PUT', /^\/api\/ceo$/, ({ body }) => {
+      // Plain text, one line: it is shown on screen and quoted to the agents.
+      db.setSetting('ceo', { name: String(body.name ?? '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 40), asked: true });
+      bus.emit('change', {});
     }],
     ['POST', /^\/api\/pick-folder$/, async () => ({ path: await pickFolder() })],
     ['POST', /^\/api\/projects\/(\d+)\/reveal$/, ({ m }) => {

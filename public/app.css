@@ -155,7 +155,11 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
 .cells i.on { background: var(--ink); }
 .cells.warn i.on { background: var(--orange); }
 .cells.lg i { height: 14px; }
-.you { display: flex; align-items: center; gap: 0.6rem; padding: 0.2rem 0.45rem; }
+.you { display: flex; align-items: center; gap: 0.6rem; padding: 0.3rem 0.45rem; width: 100%; border: 0; background: none; border-radius: 6px; text-align: left; cursor: pointer; }
+.you:hover { background: var(--surface-3); }
+.you strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 10rem; }
+.charter { display: flex; align-items: center; gap: 0.9rem; margin-bottom: 1.2rem; }
+.charter strong { display: block; font-size: 1.2rem; letter-spacing: -0.015em; }
 .you small { display: block; color: var(--text-2); font-size: 0.73rem; }
 .you strong { font-size: 0.85rem; font-weight: 600; display: block; line-height: 1.2; }
 

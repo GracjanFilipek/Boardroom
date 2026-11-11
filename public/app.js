@@ -68,6 +68,27 @@ function revealFolder(project) {
   return api('POST', `/api/projects/${project.id}/reveal`).catch((err) => toast(err.message));
 }
 
+/** The name on the Chief Executive's door, or "You" until one is given. */
+const me = () => S.state?.ceo?.name || 'You';
+
+function nameSheet() {
+  const input = h('input', { name: 'name', value: S.state.ceo.name, maxlength: 40, placeholder: 'Your name', autocomplete: 'given-name' });
+  let saved = false;
+  const save = () => {
+    saved = true;
+    sheet.close();
+    act(async () => {
+      await api('PUT', '/api/ceo', { name: input.value });
+      if (input.value.trim()) toast(`Welcome, ${input.value.trim()}. The company is yours.`, 'crown');
+    });
+  };
+  const form = h('form', { onsubmit: (e) => (e.preventDefault(), save()) },
+    h('div', { class: 'charter' }, avatar('ceo', 'lg'), h('div', null, h('span', { class: 'label' }, 'Chief Executive'), h('strong', null, 'The name on the door'))),
+    h('label', { class: 'field' }, h('span', null, 'What should the team call you?'), input, h('small', null, 'It appears on the org chart and in the conversation, and your project manager addresses you by it.')));
+  // Closing without a name still counts as asked, so the question does not return on every launch.
+  const sheet = openSheet({ title: 'Take your seat', body: form, foot: [h('button', { class: 'btn primary', onclick: save }, icon('crown'), 'Take the chair')], onClose: () => { if (!saved && !S.state.ceo.asked) api('PUT', '/api/ceo', { name: S.state.ceo.name }).then(refresh, () => {}); } });
+}
+
 // ---- state ------------------------------------------------------------------
 
 const S = { state: null, detail: null, sessions: null, query: '', detailLevel: false, expanded: new Set() };
@@ -123,6 +144,11 @@ function render() {
   morph(document.getElementById('topbar'), topbar(r));
   morph(document.getElementById('tabbar'), tabbar(r));
   rollNumbers();
+  // First launch: ask once who is in charge.
+  if (!S.asked && !S.state.ceo.asked) {
+    S.asked = true;
+    setTimeout(nameSheet, 600);
+  }
   document.querySelectorAll('.nav, .tabs, .seg').forEach(placePill);
   tickTimers();
 }
@@ -174,7 +200,7 @@ function sidebar(r) {
     h('div', { class: 'sidebar-foot' },
       h('button', { class: 'nav-item', onclick: githubSheet }, icon('handover'), h('span', { class: 'grow' }, 'GitHub')),
       h('button', { class: 'budget-card', onclick: budgetSheet }, h('strong', null, 'Budget', h('span', null, budgetShare(budget))), cells(budget), h('small', null, budgetLine(budget))),
-      h('div', { class: 'you' }, avatar('ceo', 'sm'), h('div', null, h('strong', null, 'You'), h('small', null, 'Chief Executive')))),
+      h('button', { class: 'you', onclick: nameSheet, title: 'Change your name' }, avatar('ceo', 'sm'), h('div', null, h('strong', null, me()), h('small', null, 'Chief Executive')))),
   );
 }
 
@@ -416,7 +442,7 @@ function attentionCard(task, showProject, i = 0) {
 /** Turns a stored event into who said what to whom. */
 function speaker(e, role, name) {
   if (e.type === 'error') return { role: 'sys', name: 'System', text: e.text };
-  if (e.type === 'ceo' || e.type === 'reject' || (e.type === 'approve' && !e.text.startsWith('Auto'))) return { role: 'ceo', name: 'You', text: e.text.replace(/^The CEO /, '') };
+  if (e.type === 'ceo' || e.type === 'reject' || (e.type === 'approve' && !e.text.startsWith('Auto'))) return { role: 'ceo', name: me(), text: e.text.replace(/^The CEO /, '') };
   const assign = e.text.match(/^PM → (.+?): ([\s\S]*)$/);
   if (e.type === 'assign' && assign) return { role: 'pm', name: 'Project Manager', to: assign[1], text: assign[2] };
   const report = e.text.match(/^(.+?) → PM: ([\s\S]*)$/);
@@ -536,7 +562,7 @@ function projectView(r) {
               talk.map((m) => h('div', { class: `say ${m.role} enter`, 'data-key': `m${m.id}`, 'data-flip': `m${m.id}` },
                 avatar(m.role, 'sm', false, m.role === 'pm' ? pm.name : ''),
                 h('div', { class: 'say-body' },
-                  h('div', { class: 'say-head' }, h('strong', null, m.role === 'ceo' ? 'You' : pm.name), h('time', null, ago(m.ts))),
+                  h('div', { class: 'say-head' }, h('strong', null, m.role === 'ceo' ? me() : pm.name), h('time', null, ago(m.ts))),
                   h('div', { class: 'say-text' }, m.text),
                   effects(m.effects)))),
               waiting ? h('div', { class: 'say pm enter', 'data-key': 'pending' },
@@ -606,7 +632,7 @@ function projectView(r) {
     body = h('div', null,
       h('div', { class: 'card', style: 'margin-top:1.4rem;padding:0' },
         h('div', { class: 'org' }, h('div', { class: 'org-inner' },
-          node('ceo', 'You', 'Chief Executive'),
+          node('ceo', me(), 'Chief Executive'),
           h('div', { class: 'org-link' },
             h('div', { class: `wire${pm.job ? ' live' : ''}` }),
             h('div', { class: 'seg', role: 'group', 'aria-label': 'Who approves proposals' },

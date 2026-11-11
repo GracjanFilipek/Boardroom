@@ -206,6 +206,7 @@ test('the CEO talks to the manager, who briefs the team and queues the work', as
   const { db, orch, close } = company(runner);
   const id = orch.createProject({ name: 'Talkative', devs: 1 });
   assert.throws(() => orch.tell(id, '   '), /Write a message/);
+  db.setSetting('ceo', { name: 'Gracjan' });
   orch.tell(id, 'Everything must work on a phone from now on.');
 
   // The manager answers even though the project was never started.
@@ -221,6 +222,7 @@ test('the CEO talks to the manager, who briefs the team and queues the work', as
   // Once the project runs, the developer gets the memo and the manager plans with the conversation in mind.
   orch.setStatus(id, 'active');
   await until(() => prompts.some((p) => p.kind === 'build') && prompts.some((p) => p.kind === 'ideate'));
+  assert.match(prompts.find((p) => p.kind === 'build').prompt, /The CEO's name is Gracjan\./);
   assert.match(prompts.find((p) => p.kind === 'build').prompt, /Standing guidance from the CEO[\s\S]*usable on a phone/);
   assert.match(prompts.find((p) => p.kind === 'ideate').prompt, /CEO: Everything must work on a phone/);
   close();

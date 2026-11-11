@@ -223,9 +223,9 @@ test('a refused command stops the developer, asks the CEO, and the same session 
   const base = createMockRunner({ delay: 5 });
   // What the developer tries on each run of the task, in order.
   const attempts = [
-    [{ tool: 'Bash', command: 'cd app && python3 -m pytest tests/ | tail -5' }],
+    [{ tool: 'Bash', command: 'cd app && python3 -m pytest tests/ | tail -5 && sudo make install' }],
     [{ tool: 'Bash', command: 'docker exec web ls' }],
-    [{ tool: 'Bash', command: 'tail -1 log.txt' }], // already refused by the CEO: must not stop the run again
+    [{ tool: 'Bash', command: 'sudo make install; ls' }], // already refused by the CEO: must not stop the run again
   ];
   const runner = async (o) => {
     if (o.kind !== 'build') return base(o);
@@ -243,7 +243,7 @@ test('a refused command stops the developer, asks the CEO, and the same session 
   await until(() => db.get('SELECT status FROM tasks').status === 'blocked');
   assert.equal(runs.length, 1, 'the developer does not carry on while it waits');
   let requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending' ORDER BY id");
-  assert.deepEqual(requests.map((r) => r.rule), ['Bash(python3 *)', 'Bash(tail *)']);
+  assert.deepEqual(requests.map((r) => r.rule), ['Bash(python3 *)', 'Bash(sudo *)']);
   assert.equal(db.get('SELECT COUNT(*) AS n FROM events WHERE type = ?', 'error').n, 2, 'a pause is not reported as a failed run');
 
   orch.decidePermission(requests[0].id, true);
@@ -253,7 +253,7 @@ test('a refused command stops the developer, asks the CEO, and the same session 
   // Second run: same session, told what was decided, and it stops again on the next unknown command.
   await until(() => runs.length === 2 && db.get('SELECT status FROM tasks').status === 'blocked');
   assert.equal(runs[1].resume, 'session-1');
-  assert.match(runs[1].prompt, /Allowed now: Bash\(python3 \*\)\.\nStill blocked, by the CEO's decision: Bash\(tail \*\)/);
+  assert.match(runs[1].prompt, /Allowed now: Bash\(python3 \*\)\.\nStill blocked, by the CEO's decision: Bash\(sudo \*\)/);
   assert.match(runs[1].tools, /Bash\(python3 \*\)$/);
   requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending'");
   assert.deepEqual(requests.map((r) => r.rule), ['Bash(docker exec *)']);

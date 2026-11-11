@@ -122,7 +122,7 @@ Developers get **the same permissions you give Claude Code**. Before each run Bo
 
 On top of that each project has its own list. It starts with file tools, local git (status, diff, log, add, commit), `npm test` and `npm run`. In project settings you add commands such as `python3`, `docker` or `curl` with one press.
 
-When a developer is still blocked on a command, a request lands on your Desk: "Ada was blocked. Allow python3?" One press allows it for the project and sends the blocked task back to the developer.
+When a developer reaches a command it may not run, it **stops on the spot**. A request lands on your Desk: "Ada stopped and is waiting for you. Allow python3?" Allow it or keep it blocked. Once every request from that task is answered, the same developer continues the same session, knowing what you decided. A command you refused does not stop the team again; the developer works without it and says so in the report. While one task waits, the developer is free for other work.
 
 To keep a project strict, switch its settings to "Only the list below". "Skip all permission checks" maps to `--dangerously-skip-permissions`; use it inside a container or VM.
 

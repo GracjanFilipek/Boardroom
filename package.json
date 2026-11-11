@@ -56,5 +56,6 @@
     },
     "icon": "electron/icon.png"
   },
-  "productName": "Booardroom"
+  "productName": "Booardroom",
+  "license": "PolyForm-Noncommercial-1.0.0"
 }

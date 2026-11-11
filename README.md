@@ -174,3 +174,9 @@ public/pixels.js     pixel-art icons and agent portraits, drawn on a 10 by 10 gr
 ```
 
 Built against Claude Code 2.1.
+
+## Licence
+
+Booardroom is free for personal and other noncommercial use under the [PolyForm Noncommercial License 1.0.0](LICENSE.md). You may run it, study it and change it for yourself.
+
+You may not sell it, resell it, offer it as a paid service, or use it in the work of a business. For a commercial licence, open an issue in this repository.

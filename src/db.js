@@ -144,6 +144,13 @@ export function openDb(dataDir) {
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'inherit_claude')) raw.exec('ALTER TABLE projects ADD COLUMN inherit_claude INTEGER NOT NULL DEFAULT 1');
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'auto_push')) raw.exec('ALTER TABLE projects ADD COLUMN auto_push INTEGER NOT NULL DEFAULT 1');
   if (!raw.prepare('PRAGMA table_info(tasks)').all().some((c) => c.name === 'resume_note')) raw.exec('ALTER TABLE tasks ADD COLUMN resume_note TEXT');
+  // One model per role. A project that named a single model before keeps it for everyone.
+  if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'model_pm')) {
+    raw.exec("ALTER TABLE projects ADD COLUMN model_pm TEXT NOT NULL DEFAULT 'fable'");
+    raw.exec("ALTER TABLE projects ADD COLUMN model_designer TEXT NOT NULL DEFAULT 'opus'");
+    raw.exec("ALTER TABLE projects ADD COLUMN model_dev TEXT NOT NULL DEFAULT 'opus'");
+    raw.exec("UPDATE projects SET model_pm = model, model_designer = model, model_dev = model WHERE model != ''");
+  }
   if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();

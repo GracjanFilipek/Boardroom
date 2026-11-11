@@ -12,6 +12,8 @@ const DESIGNER_TOOLS = 'Read,Glob,Grep,Skill';
 const PM_REVIEW_ALLOWED = 'Read,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *)';
 const OPEN = ['queued', 'in_progress', 'blocked', 'review', 'changes', 'escalated'];
 const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken', 'Margaret', 'Alan', 'Edsger', 'Radia', 'Donald', 'Katherine'];
+// Model aliases the Claude Code CLI resolves to the newest model of each family. '' means the CLI's default.
+export const MODELS = ['', 'fable', 'opus', 'sonnet', 'haiku'];
 const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
 
 export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir, github, now = () => Date.now() }) {
@@ -181,7 +183,9 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     if (['ceo', 'auto'].includes(patch.approval)) next.approval = patch.approval;
     if (['acceptEdits', 'bypassPermissions'].includes(patch.permission_mode)) next.permission_mode = patch.permission_mode;
     if (typeof patch.allowed_tools === 'string') next.allowed_tools = patch.allowed_tools.trim();
-    if (typeof patch.model === 'string') next.model = patch.model.trim();
+    for (const key of ['model_pm', 'model_designer', 'model_dev']) {
+      if (MODELS.includes(patch[key])) next[key] = patch[key];
+    }
     if (patch.auto_push !== undefined) next.auto_push = ['1', 'true', 1, true].includes(patch.auto_push) ? 1 : 0;
     if (patch.inherit_claude !== undefined) next.inherit_claude = ['1', 'true', 1, true].includes(patch.inherit_claude) ? 1 : 0;
     const int = (key, lo, hi) => {
@@ -377,7 +381,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
       kind,
       system: rolePrompt(agent?.role),
       cwd: project.workdir,
-      model: project.model || undefined,
+      // Each role runs on its own model. An empty choice leaves it to the person's Claude Code default.
+      model: ({ pm: project.model_pm, designer: project.model_designer, dev: project.model_dev }[agent?.role] ?? project.model_dev) || undefined,
       signal: abort.signal,
       onEvent(e) {
         if (e.type === 'limits') budget.record(e.info);

@@ -75,6 +75,8 @@ Each role has a standing job description that rides along on every run as an app
 | Designer | `src/roles/designer.md` | Read the existing design system first, cover every state, write exact copy, hand over a spec a developer can build from |
 | Developer | `src/roles/developer.md` | Understand before changing, smallest change that meets the order, verify for real, report what happened |
 
+Each role also runs on its own model, picked from a dropdown in project settings: Fable 5.2 for the project manager and Opus 5.5 for the designer and developers by default, with Sonnet, Haiku or your Claude Code default as alternatives. A larger model uses more of your Claude limit per run.
+
 To rewrite a role for your company, put a file with the same name in `<data dir>/roles/`. It replaces the built-in one from the next run, no restart needed.
 
 The designer has the Skill tool, so it applies design skills installed in your Claude Code (for example a house style skill) when one fits. It reads a `DESIGN.md`, tokens file or stylesheet in the repository as the source of truth. It does not use claude.ai/design: that product syncs design systems on request from a person and has no headless mode an unattended agent could drive.

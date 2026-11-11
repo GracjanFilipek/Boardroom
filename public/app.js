@@ -467,6 +467,7 @@ function projectView(r) {
       avatar(role, '', Boolean(job), name),
       h('strong', null, name),
       h('span', { class: 'role' }, title),
+      a ? h('span', { class: 'chip', style: 'margin-top:.25rem' }, MODEL_NAME[{ pm: p.model_pm, designer: p.model_designer, dev: p.model_dev }[a.role]] === 'My Claude Code default' ? 'Default model' : MODEL_NAME[{ pm: p.model_pm, designer: p.model_designer, dev: p.model_dev }[a.role]] ?? 'Default model') : null,
       a ? h('span', { class: 'doing' }, job ? [typing(), h('span', { 'data-since': String(job.since) }, elapsed(job.since))] : idle) : null,
       a ? h('span', { class: 'what' }, what) : null);
   };
@@ -649,6 +650,9 @@ function projectView(r) {
   return h('div', { 'data-view': `project-${p.id}-${r.tab}` }, header, body);
 }
 
+const MODEL_CHOICES = [['fable', 'Fable 5.2'], ['opus', 'Opus 5.5'], ['sonnet', 'Sonnet 5.5'], ['haiku', 'Haiku 5.5'], ['', 'My Claude Code default']];
+const MODEL_NAME = Object.fromEntries(MODEL_CHOICES);
+
 const COMMON_COMMANDS = ['python3', 'pytest', 'pip', 'node', 'npx', 'make', 'docker', 'curl', 'cargo', 'go', 'git push'];
 const ruleLabel = (rule) => rule.match(/^Bash\((.+) \*\)$/)?.[1] ?? rule;
 
@@ -775,7 +779,7 @@ function directiveSheet(p) {
 }
 
 function projectForm(p, devCount = 2) {
-  const v = p ?? { name: '', brief: '', approval: 'ceo', ideas_per_round: 3, max_iterations: 2, max_turns: 40, daily_task_cap: 10, permission_mode: 'acceptEdits', allowed_tools: '', model: '' };
+  const v = p ?? { name: '', brief: '', approval: 'ceo', ideas_per_round: 3, max_iterations: 2, max_turns: 40, daily_task_cap: 10, permission_mode: 'acceptEdits', allowed_tools: '', model_pm: 'fable', model_designer: 'opus', model_dev: 'opus' };
   const select = (name, options, value) => h('select', { name }, options.map(([val, label]) => h('option', { value: val, selected: String(val) === String(value) }, label)));
   const number = (name, value, min, max) => h('input', { name, type: 'number', min, max, value: String(value), inputmode: 'numeric' });
   const folderInput = h('input', { name: 'workdir', id: 'workdir', placeholder: 'No folder chosen' });
@@ -811,7 +815,11 @@ function projectForm(p, devCount = 2) {
       h('small', null, 'Skipping checks lets developers run any shell command. Use it only in a sandbox.')),
     p ? rulesEditor(p) : null,
     p ? h('label', { class: 'field' }, h('span', null, 'GitHub'), select('auto_push', [['1', 'Push each approved task to GitHub'], ['0', 'Do not push. I push myself']], p.auto_push ? '1' : '0'), h('small', null, 'Booardroom does the pushing with your account. Developers commit locally and never push.')) : null,
-    h('label', { class: 'field' }, h('span', null, 'Model'), h('input', { name: 'model', value: v.model, placeholder: 'Default model of your Claude Code' })),
+    h('h3', null, 'Models'),
+    h('div', { class: 'row2' },
+      h('label', { class: 'field' }, h('span', null, 'Project manager'), select('model_pm', MODEL_CHOICES, v.model_pm)),
+      h('label', { class: 'field' }, h('span', null, 'Designer'), select('model_designer', MODEL_CHOICES, v.model_designer)),
+      h('label', { class: 'field' }, h('span', null, 'Developers'), select('model_dev', MODEL_CHOICES, v.model_dev), h('small', null, 'A larger model thinks better and uses more of your Claude limit per run.'))),
   );
   const submit = () => {
     if (!form.reportValidity()) return;

@@ -163,9 +163,11 @@ test('the archive reads Claude Code sessions and claude.ai exports, and hands th
 
 test('a proposal that needs design goes through the designer, and every agent gets its master prompt', async () => {
   const seen = [];
+  const models = [];
   const base = createMockRunner({ delay: 5 });
   const runner = (o) => {
     seen.push({ kind: o.kind, system: o.system });
+    models.push({ kind: o.kind, model: o.model });
     return base(o);
   };
   const { db, orch, close } = company(runner);
@@ -179,6 +181,12 @@ test('a proposal that needs design goes through the designer, and every agent ge
   orch.decideIdea(designed[0].id, true);
   assert.match(db.get('SELECT spec FROM tasks WHERE idea_id = ?', designed[0].id).spec, /Design spec from the designer/);
   await until(() => seen.some((r) => r.kind === 'review'));
+
+  // Each role runs on its own model: Fable for the manager, Opus for the others, until the CEO picks differently.
+  const model = (kind) => models.find((r) => r.kind === kind).model;
+  assert.deepEqual([model('ideate'), model('review'), model('design'), model('build')], ['fable', 'fable', 'opus', 'opus']);
+  orch.updateProject(id, { model_dev: 'sonnet', model_pm: '', model_designer: 'not-a-model' });
+  assert.deepEqual(db.get('SELECT model_pm, model_designer, model_dev FROM projects WHERE id = ?', id), { __proto__: null, model_pm: '', model_designer: 'opus', model_dev: 'sonnet' });
 
   const prompt = (kind) => seen.find((r) => r.kind === kind).system;
   assert.match(prompt('ideate'), /^# Project Manager/);

@@ -142,6 +142,7 @@ export function openDb(dataDir) {
   // Databases created before the designer joined lack this column.
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'memo')) raw.exec("ALTER TABLE projects ADD COLUMN memo TEXT NOT NULL DEFAULT ''");
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'inherit_claude')) raw.exec('ALTER TABLE projects ADD COLUMN inherit_claude INTEGER NOT NULL DEFAULT 1');
+  if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'auto_push')) raw.exec('ALTER TABLE projects ADD COLUMN auto_push INTEGER NOT NULL DEFAULT 1');
   if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();

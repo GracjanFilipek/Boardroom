@@ -8,6 +8,7 @@ import { createApp } from '../src/server.js';
 import { createMockRunner } from '../src/claude.js';
 import { openDb } from '../src/db.js';
 import { createBudget } from '../src/budget.js';
+import { execFileSync } from 'node:child_process';
 import { rulesFor, covered, parseRules, claudeCodeRules } from '../src/permissions.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'boardroom-test-'));
@@ -287,11 +288,63 @@ test('developers inherit what the CEO allows Claude Code, unless the project opt
   assert.match(seen[0].tools, /Bash\(python3 \*\),Bash\(docker \*\)$/);
   assert.equal(seen[0].mode, 'auto');
 
+  orch.setStatus(id, 'paused'); // free the run slots for the second project
   const own = orch.createProject({ name: 'Strict', devs: 1, inherit_claude: '0' });
   orch.addDirective(own, { title: 'Second' });
   orch.setStatus(own, 'active');
-  await until(() => seen.length === 2);
-  assert.doesNotMatch(seen[1].tools, /python3/);
-  assert.equal(seen[1].mode, 'acceptEdits');
+  await until(() => seen.some((run) => !/python3/.test(run.tools)));
+  assert.equal(seen.find((run) => !/python3/.test(run.tools)).mode, 'acceptEdits');
   close();
+});
+
+test('Boardroom creates the repository, signs commits as the account and pushes approved work', async () => {
+  // A bare repository on disk stands in for GitHub: the fake API hands out its path as the clone URL.
+  // The machine running the tests may name a git author of its own. Take that out of the picture.
+  process.env.GIT_CONFIG_GLOBAL = '/dev/null';
+  process.env.GIT_CONFIG_SYSTEM = '/dev/null';
+  const remote = tmp();
+  execFileSync('git', ['init', '-q', '--bare', remote]);
+  const calls = [];
+  const fetchImpl = async (url, init) => {
+    calls.push(`${init.method} ${new URL(url).pathname}`);
+    const body = url.endsWith('/user') ? { login: 'ceo', id: 7, name: 'The CEO' } : { clone_url: remote, html_url: 'https://github.com/ceo/shop' };
+    return { ok: true, status: 200, json: async () => body };
+  };
+  const dataDir = tmp();
+  const seen = [];
+  const base = createMockRunner({ delay: 5 });
+  const runner = async (o) => {
+    if (o.kind === 'build') {
+      seen.push({ prompt: o.prompt, token: o.env?.GH_TOKEN });
+      fs.writeFileSync(path.join(o.cwd, 'feature.txt'), 'done');
+      execFileSync('git', ['add', '-A'], { cwd: o.cwd });
+      execFileSync('git', ['commit', '-q', '-m', 'Add feature'], { cwd: o.cwd });
+    }
+    return base(o);
+  };
+  const app = createApp({ dataDir, runner, mock: true, configDir: tmp(), github: { fetchImpl, useCli: false } });
+  const { db, orch, server } = app;
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  const post = (url, body) => fetch(baseUrl + url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body ?? {}) }).then((r) => r.json());
+
+  try {
+    assert.equal((await post('/api/github/connect', { token: 'secret-token' })).account.login, 'ceo');
+    const { id } = await post('/api/projects', { name: 'Shop', devs: 1 });
+    const workdir = db.get('SELECT workdir FROM projects').workdir;
+    assert.equal((await post(`/api/projects/${id}/github/create`, { name: 'shop' })).url, 'https://github.com/ceo/shop');
+    assert.deepEqual(calls, ['GET /user', 'POST /user/repos']);
+    assert.equal(execFileSync('git', ['config', '--local', 'user.email'], { cwd: workdir }).toString().trim(), '7+ceo@users.noreply.github.com');
+
+    orch.addDirective(id, { title: 'Ship the feature' });
+    orch.setStatus(id, 'active');
+    await until(() => db.get("SELECT COUNT(*) AS n FROM events WHERE text LIKE 'Boardroom pushed%'").n === 1);
+    assert.match(execFileSync('git', ['log', '--format=%an <%ae> %s', '--all'], { cwd: remote }).toString(), /The CEO <7\+ceo@users\.noreply\.github\.com> Add feature/);
+    assert.equal(seen[0].token, 'secret-token', 'agents get the account in their environment');
+    assert.match(seen[0].prompt, /Boardroom pushes approved work there by itself/);
+  } finally {
+    app.close();
+    delete process.env.GIT_CONFIG_GLOBAL;
+    delete process.env.GIT_CONFIG_SYSTEM;
+  }
 });

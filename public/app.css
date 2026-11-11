@@ -225,7 +225,9 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
 button.rule.ghost { border-style: dashed; color: var(--text-2); cursor: pointer; padding-right: 0.5rem; }
 button.rule.ghost:hover { border-style: solid; border-color: var(--ink); color: var(--text); }
 .pick { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.pick input { flex: 1; min-width: 0; }
+.pick input { flex: 1; min-width: 0; padding: 0.52rem 0.7rem; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--surface); }
+.pick input:focus { outline: 2px solid var(--ink); outline-offset: -1px; }
+.sheet-body a, .lede a { color: inherit; text-underline-offset: 3px; }
 .field label > span { font-size: 0.83rem; font-weight: 600; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; align-items: start; }
 
@@ -246,6 +248,10 @@ button.rule.ghost:hover { border-style: solid; border-color: var(--ink); color: 
 .banner { display: flex; gap: 0.7rem; align-items: center; padding: 0.7rem 0.9rem; border-radius: 6px; border: 1px solid var(--orange); background: var(--orange-soft); color: var(--orange); font-size: 0.88rem; margin-top: 1.2rem; }
 .banner strong { font-weight: 700; }
 .banner .btn { flex: none; }
+.banner.plain { border-color: var(--line-strong); background: var(--surface); color: var(--text-2); }
+.banner.plain strong { color: var(--text); }
+a.chip { text-decoration: none; }
+a.chip:hover { border-color: var(--ink); color: var(--text); }
 .btn.small { min-height: 1.8rem; padding: 0.2rem 0.6rem; font-size: 0.8rem; }
 
 .stats-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); margin-top: 1.5rem; }

@@ -2,6 +2,9 @@ const clip = (s, n) => (s && s.length > n ? `${s.slice(0, n)}\n[cut]` : s || '')
 
 function context(project, handovers) {
   const parts = [`# Project: ${project.name}`, '', '## Brief from the CEO', project.brief || '(no brief yet)'];
+  parts.push('', '## GitHub', project.repo
+    ? `This project lives at ${project.repo}. Boardroom pushes approved work there by itself. Commit locally and do not push, open pull requests or create repositories.`
+    : 'This project has no GitHub repository. Do not try to create one or to push: the CEO does that with one press in Boardroom. If the work needs a repository, say so in your report.');
   if (project.memo) parts.push('', '## Standing guidance from the CEO, kept by the project manager', project.memo);
   if (handovers.length) {
     parts.push('', '## Handover notes from earlier conversations');

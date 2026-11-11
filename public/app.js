@@ -172,6 +172,7 @@ function sidebar(r) {
           p.proposed + p.attention ? h('span', { class: 'badge' }, String(p.proposed + p.attention)) : null)),
       h('button', { class: 'nav-item', onclick: () => projectForm() }, icon('plus'), h('span', { class: 'grow' }, 'New project'))),
     h('div', { class: 'sidebar-foot' },
+      h('button', { class: 'nav-item', onclick: githubSheet }, icon('handover'), h('span', { class: 'grow' }, 'GitHub')),
       h('button', { class: 'budget-card', onclick: budgetSheet }, h('strong', null, 'Budget', h('span', null, budgetShare(budget))), cells(budget), h('small', null, budgetLine(budget))),
       h('div', { class: 'you' }, avatar('ceo', 'sm'), h('div', null, h('strong', null, 'You'), h('small', null, 'Chief Executive')))),
   );
@@ -227,6 +228,7 @@ function palette() {
     ...projects.map((p) => ({ label: `Talk to the manager of ${p.name}`, glyph: 'chat', run: go(`#/p/${p.id}/manager`) })),
     { label: 'New project', glyph: 'plus', run: () => projectForm() },
     { label: 'Budget', glyph: 'gauge', run: budgetSheet },
+    { label: 'GitHub account', glyph: 'handover', run: githubSheet },
     ...projects.map((p) => p.status === 'active'
       ? { label: `Pause ${p.name}`, glyph: 'pause', run: () => act(() => api('POST', `/api/projects/${p.id}/pause`)) }
       : { label: `Start ${p.name}`, glyph: 'play', run: () => act(() => api('POST', `/api/projects/${p.id}/start`)) }),
@@ -433,7 +435,7 @@ function timelineItem(e, { compact = false, project, role, name } = {}) {
 // ---- project ----------------------------------------------------------------
 
 function projectView(r) {
-  const { project: p, agents, ideas, tasks, events, handovers, spend, messages: talk, permissions } = S.detail;
+  const { project: p, agents, ideas, tasks, events, handovers, spend, messages: talk, permissions, repo, github } = S.detail;
   const summary = S.state.projects.find((x) => x.id === p.id) ?? { ...p, working: 0 };
   const pm = agents.find((a) => a.role === 'pm');
   const designer = agents.find((a) => a.role === 'designer');
@@ -471,7 +473,8 @@ function projectView(r) {
           h('div', { class: 'actions small muted', style: 'margin-top:.35rem;gap:.4rem .7rem' },
             h('span', { class: `chip ${active ? 'green' : ''}` }, h('span', { class: `dot ${active ? (summary.working ? 'busy' : 'on') : ''}` }), active ? 'Running' : 'Paused'),
             h('span', null, num(spend.runs), ' runs'),
-            h('span', null, num(spend.usd, 'usd'), ' at API prices')))),
+            h('span', null, num(spend.usd, 'usd'), ' at API prices'),
+            repo.web ? h('a', { class: 'chip', href: repo.web, target: '_blank', rel: 'noopener' }, repo.slug) : null))),
       h('div', { class: 'actions' },
         active
           ? h('button', { class: 'btn', onclick: () => act(() => api('POST', `/api/projects/${p.id}/pause`)) }, icon('pause'), 'Pause')
@@ -482,6 +485,12 @@ function projectView(r) {
     holdBanner(),
     p.is_git ? null : h('div', { class: 'banner' }, icon('alert'), h('div', { style: 'flex:1' }, h('strong', null, 'This folder is not a git repository. '), 'Developers cannot commit their work, and the manager cannot review a diff.'),
       h('button', { class: 'btn small', onclick: () => act(() => api('POST', `/api/projects/${p.id}/git-init`)) }, 'Set up git here')),
+    p.is_git && !repo.remote
+      ? h('div', { class: 'banner plain' }, icon('handover'), h('div', { style: 'flex:1' }, h('strong', null, 'Not on GitHub yet. '), github?.login ? `Create a repository under ${github.login} and Boardroom pushes approved work there.` : 'Connect your GitHub account and Boardroom can create the repository and push approved work.'),
+          github?.login
+            ? h('button', { class: 'btn small', onclick: () => repoSheet(p) }, 'Create repository')
+            : h('button', { class: 'btn small', onclick: githubSheet }, 'Connect GitHub'))
+      : null,
     h('div', { class: 'tabs', role: 'tablist' },
       h('span', { class: 'pill', 'data-keep-style': true }),
       tab('overview', 'Overview', proposed.length + attention.length + permissions.length, true),
@@ -610,7 +619,8 @@ function projectView(r) {
           messages.length ? h('div', { class: 'timeline' }, events.filter((e) => e.type !== 'tool' && e.type !== 'say').slice(0, 7).map((e) => item(e, { compact: true }))) : empty('clock', 'Quiet so far'))),
       h('div', { class: 'actions', style: 'margin-top:2rem' },
         h('span', { class: 'small muted mono', style: 'min-width:0;overflow-wrap:anywhere' }, p.workdir),
-        h('button', { class: 'btn quiet', onclick: () => revealFolder(p) }, icon('archive'), FILES_APP ? `Show in ${FILES_APP}` : 'Open folder')));
+        h('button', { class: 'btn quiet', onclick: () => revealFolder(p) }, icon('archive'), FILES_APP ? `Show in ${FILES_APP}` : 'Open folder'),
+        repo.remote ? h('button', { class: 'btn quiet', onclick: () => act(async () => { await api('POST', `/api/projects/${p.id}/github/push`); toast('Pushed to GitHub.', 'check'); }) }, icon('handover'), 'Push now') : null));
   }
   return h('div', { 'data-view': `project-${p.id}-${r.tab}` }, header, body);
 }
@@ -655,6 +665,75 @@ function rulesEditor(p) {
     h('small', null, p.run_mode === 'acceptEdits'
       ? 'When a developer is blocked on a command, a request lands on your Desk and one press allows it.'
       : `Your Claude Code runs in ${p.run_mode === 'auto' ? 'auto' : 'skip-all-checks'} mode, so developers do too.`));
+}
+
+/** The company's GitHub account: found through the GitHub CLI when it is logged in, or connected with a token. */
+async function githubSheet() {
+  let account = null;
+  try {
+    account = (await api('GET', '/api/github')).account;
+  } catch {}
+  const input = h('input', { type: 'password', placeholder: 'ghp_… or github_pat_…', autocomplete: 'off', 'aria-label': 'Personal access token' });
+  const connect = async () => {
+    try {
+      const res = await api('POST', '/api/github/connect', { token: input.value });
+      sheet.close();
+      toast(`Connected as ${res.account.login}.`, 'check');
+      refresh();
+    } catch (err) {
+      toast(err.message);
+    }
+  };
+  const connected = account?.login;
+  const step = (n, title, text) => h('div', { class: 'howto' }, h('b', null, n), h('div', null, h('strong', null, title), h('p', null, text)));
+  const sheet = openSheet({
+    title: 'GitHub',
+    body: connected
+      ? h('div', null,
+          h('div', { class: 'budget-hero' }, h('b', { style: 'font-size:1.3rem' }, account.login), h('span', { class: 'small muted' }, account.source === 'cli' ? 'Signed in through the GitHub CLI on this computer. Nothing is stored in Boardroom.' : 'Connected with a personal access token, stored in Boardroom’s local database on this computer.')),
+          step('1', 'Repositories', 'Each project page offers to create a repository under this account, or to link an existing one.'),
+          step('2', 'Pushing', 'When the manager approves a task, Boardroom pushes it. Developers commit locally and never push.'),
+          step('3', 'Your name on the work', `Commits carry ${account.name} unless the folder or this computer already sets an author.`))
+      : h('div', null,
+          account?.error ? h('div', { class: 'banner', style: 'margin:0 0 1rem' }, icon('alert'), h('div', null, `GitHub rejected the sign-in found on this computer. ${account.error}`)) : null,
+          h('p', { class: 'muted', style: 'margin-bottom:1rem' }, 'Boardroom acts on GitHub with your account: it creates repositories and pushes approved work. Two ways to sign in.'),
+          step('A', 'GitHub CLI, nothing to paste', ['Install the GitHub CLI, run ', h('span', { class: 'mono' }, 'gh auth login'), ' in a terminal, then reopen this sheet. Boardroom picks the sign-in up.']),
+          step('B', 'Personal access token', ['Create one at ', h('a', { href: 'https://github.com/settings/tokens/new?scopes=repo&description=Boardroom', target: '_blank', rel: 'noopener' }, 'github.com, Settings, Developer settings, Tokens (classic)'), ' with the “repo” scope and paste it here.']),
+          h('div', { class: 'pick', style: 'margin-top:1rem' }, input, h('button', { class: 'btn primary', onclick: connect }, 'Connect'))),
+    foot: connected && account.source === 'token'
+      ? [h('button', { class: 'btn bad', onclick: async () => { await api('DELETE', '/api/github'); sheet.close(); toast('GitHub disconnected.', 'check'); refresh(); } }, 'Disconnect')]
+      : undefined,
+  });
+}
+
+function repoSheet(p) {
+  const slug = p.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+  const name = h('input', { name: 'name', value: slug, required: true });
+  const visibility = h('select', { name: 'private' }, h('option', { value: 'true' }, 'Private'), h('option', { value: 'false' }, 'Public'));
+  const existing = h('input', { placeholder: 'owner/name or https://github.com/owner/name', 'aria-label': 'Existing repository' });
+  const go = (label, call) => async (e) => {
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const out = await call();
+      sheet.close();
+      toast(out.note ? `Repository ready, but the first push failed: ${out.note}` : `${label} ${out.url.replace('https://', '')}.`, out.note ? 'alert' : 'check');
+      refresh();
+    } catch (err) {
+      toast(err.message);
+      btn.disabled = false;
+    }
+  };
+  const sheet = openSheet({
+    title: 'Put this project on GitHub',
+    body: h('div', null,
+      h('div', { class: 'row2' },
+        h('label', { class: 'field' }, h('span', null, 'New repository name'), name),
+        h('label', { class: 'field' }, h('span', null, 'Visibility'), visibility)),
+      h('button', { class: 'btn primary', onclick: go('Created', () => api('POST', `/api/projects/${p.id}/github/create`, { name: name.value, private: visibility.value })) }, icon('plus'), 'Create and push'),
+      h('h3', null, 'Or use one that exists'),
+      h('div', { class: 'pick' }, existing, h('button', { class: 'btn', onclick: go('Linked to', () => api('POST', `/api/projects/${p.id}/github/link`, { url: existing.value })) }, 'Link'))),
+  });
 }
 
 function directiveSheet(p) {
@@ -707,6 +786,7 @@ function projectForm(p, devCount = 2) {
     h('label', { class: 'field' }, h('span', null, 'Mode'), select('permission_mode', [['acceptEdits', 'Edit files, run listed commands'], ['bypassPermissions', 'Skip all permission checks']], v.permission_mode),
       h('small', null, 'Skipping checks lets developers run any shell command. Use it only in a sandbox.')),
     p ? rulesEditor(p) : null,
+    p ? h('label', { class: 'field' }, h('span', null, 'GitHub'), select('auto_push', [['1', 'Push each approved task to GitHub'], ['0', 'Do not push. I push myself']], p.auto_push ? '1' : '0'), h('small', null, 'Boardroom does the pushing with your account. Developers commit locally and never push.')) : null,
     h('label', { class: 'field' }, h('span', null, 'Model'), h('input', { name: 'model', value: v.model, placeholder: 'Default model of your Claude Code' })),
   );
   const submit = () => {

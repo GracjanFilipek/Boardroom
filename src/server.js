@@ -9,18 +9,20 @@ import { runClaude, createMockRunner } from './claude.js';
 import { createOrchestrator, DEFAULT_DEV_TOOLS } from './orchestrator.js';
 import { createHistory, transcriptText } from './history.js';
 import { pickFolder, revealFolder } from './native.js';
+import { createGitHub } from './github.js';
 import { unzipEntry } from './zip.js';
 import { execFileSync } from 'node:child_process';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
 
-export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
+export function createApp({ dataDir, runner, mock = false, configDir, github: githubOptions } = {}) {
   const db = openDb(dataDir);
   const bus = new EventEmitter();
   bus.setMaxListeners(100);
   const budget = createBudget(db);
-  const orch = createOrchestrator({ db, budget, runner, bus, configDir, dataDir: dataDir === ':memory:' ? fs.mkdtempSync('/tmp/boardroom-') : dataDir });
+  const github = createGitHub(db, githubOptions);
+  const orch = createOrchestrator({ db, budget, runner, bus, configDir, github, dataDir: dataDir === ':memory:' ? fs.mkdtempSync('/tmp/boardroom-') : dataDir });
   const history = createHistory(db, configDir ? { configDir } : undefined);
   orch.recover();
 
@@ -73,7 +75,7 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     };
   }
 
-  function projectDetail(id) {
+  async function projectDetail(id) {
     const project = db.get('SELECT * FROM projects WHERE id = ?', id);
     if (!project) throw httpError(404, 'Project not found.');
     return {
@@ -86,6 +88,8 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
       handovers: db.all('SELECT * FROM handovers WHERE project_id = ? ORDER BY id DESC', id),
       messages: db.all('SELECT * FROM (SELECT * FROM messages WHERE project_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', id).map((m) => ({ ...m, effects: m.effects ? JSON.parse(m.effects) : null })),
       spend: db.get('SELECT COALESCE(SUM(cost_usd), 0) AS usd, COUNT(*) AS runs FROM runs WHERE project_id = ?', id),
+      repo: await github.status(project.workdir),
+      github: await github.account(),
     };
   }
 
@@ -109,6 +113,24 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
         throw httpError(500, 'git init failed. Is git installed?');
       }
       bus.emit('change', {});
+    }],
+    ['GET', /^\/api\/github$/, async () => ({ account: await github.account() })],
+    ['POST', /^\/api\/github\/connect$/, async ({ body }) => ({ account: await github.connect(body.token) })],
+    ['DELETE', /^\/api\/github$/, () => github.disconnect()],
+    ['POST', /^\/api\/projects\/(\d+)\/github\/(create|link|push)$/, async ({ m, body }) => {
+      const project = db.get('SELECT * FROM projects WHERE id = ?', +m[1]);
+      if (!project) throw httpError(404, 'Project not found.');
+      let out;
+      if (m[2] === 'create') out = await github.createRepo(project.workdir, { name: body.name || project.name, isPrivate: body.private !== false && body.private !== 'false', description: project.brief.split('\n')[0] });
+      else if (m[2] === 'link') out = await github.link(project.workdir, body.url);
+      else {
+        out = await orch.publish(project.id, 'the current work');
+        if (!out.ok) throw httpError(502, out.error || 'Nothing to push.');
+      }
+      if (m[2] !== 'push') db.insert('events', { project_id: project.id, type: 'ceo', text: `The CEO connected the project to ${out.url}.`, ts: Date.now() });
+      await orch.refreshRepo(project);
+      bus.emit('change', { projectId: project.id });
+      return out;
     }],
     ['POST', /^\/api\/pick-folder$/, async () => ({ path: await pickFolder() })],
     ['POST', /^\/api\/projects\/(\d+)\/reveal$/, ({ m }) => {

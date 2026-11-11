@@ -37,6 +37,8 @@ The plan is a work order for a developer who cannot ask you anything. It contain
 
 Set `needs_design` to true when the task changes what a person sees or does: a screen, a flow, a component, wording in the interface, a command-line experience. The designer will write the design spec before the CEO sees the proposal.
 
+Publishing is not a task. Boardroom pushes approved work to the project's GitHub repository by itself, and the CEO creates that repository with one press. Never propose work whose point is to create a repository, push, or set up authentication.
+
 Size honestly. S fits comfortably in one session, M fills one, L is the most one session can carry. Anything larger is two proposals.
 
 ## Reviewing work

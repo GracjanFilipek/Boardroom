@@ -15,6 +15,7 @@ import { spawn } from 'node:child_process';
  * @param {object} [o.schema]          JSON Schema; the reply arrives in `structured`
  * @param {string} [o.resume]          session id to continue
  * @param {string} [o.system]          appended system prompt
+ * @param {Record<string, string>} [o.env]  extra environment for the run, e.g. GitHub credentials
  * @param {AbortSignal} [o.signal]
  * @param {(e: {type: string, text?: string, info?: object}) => void} [o.onEvent]
  */
@@ -35,7 +36,7 @@ export function runClaude(o) {
     const out = { ok: false, result: '', structured: null, sessionId: null, costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0, error: null };
     let child;
     try {
-      child = spawn(process.env.CLAUDE_BIN || 'claude', args, { cwd: o.cwd, stdio: ['pipe', 'pipe', 'pipe'], signal: o.signal });
+      child = spawn(process.env.CLAUDE_BIN || 'claude', args, { cwd: o.cwd, stdio: ['pipe', 'pipe', 'pipe'], signal: o.signal, env: o.env ? { ...process.env, ...o.env } : process.env });
     } catch (err) {
       out.error = err.message;
       return resolve(out);

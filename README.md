@@ -126,9 +126,18 @@ When a developer is still blocked on a command, a request lands on your Desk: "A
 
 To keep a project strict, switch its settings to "Only the list below". "Skip all permission checks" maps to `--dangerously-skip-permissions`; use it inside a container or VM.
 
-If the project folder is not a git repository, the project page says so and offers to set git up, because developers cannot commit and the manager cannot review a diff without it.
-
 Several developers share one working tree. They are told to stage only their own files. For tasks that touch the same code, run one developer.
+
+## GitHub
+
+Agents do not sign in to GitHub and do not push. Boardroom holds your account and does both itself, which is why a developer can no longer get stuck on authentication.
+
+- **Connect once.** Open **GitHub** in the sidebar. If the GitHub CLI is logged in on your machine (`gh auth login`), Boardroom uses that sign-in and stores nothing. Otherwise paste a personal access token with the `repo` scope; it is kept in Boardroom's local database, in plain text, on your computer.
+- **Create the repository with one press.** A project whose folder has no remote shows "Not on GitHub yet" with a Create repository button (private by default), or link one that exists. A folder that is not a git repository gets a "Set up git here" button first.
+- **Approved work is pushed for you.** When the manager approves a task, or you accept one, Boardroom pushes the branch. Switch this off per project in settings. "Push now" on the project page pushes on demand.
+- **Commits carry your name.** Boardroom sets the commit author for the project folder to your GitHub name and private GitHub address, unless the folder or your machine already names an author.
+
+During a run, developers also get the account in their environment (`GH_TOKEN`), so `gh` and `git` commands you allow them work. They are told not to push or create repositories.
 
 ## Security
 

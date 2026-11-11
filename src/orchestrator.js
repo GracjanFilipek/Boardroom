@@ -14,13 +14,29 @@ const OPEN = ['queued', 'in_progress', 'review', 'changes', 'escalated'];
 const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken'];
 const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
 
-export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir, now = () => Date.now() }) {
+export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir, github, now = () => Date.now() }) {
   /** agentId -> { kind, taskId, since, abort } */
   const busy = new Map();
   /** projectId -> timestamp; set after a failed PM run so a broken setup does not burn the budget */
   const cooldown = new Map();
   let ticking = false;
   const rolePrompt = createRoles(dataDir);
+
+  // Where each project lives on GitHub, refreshed in the background so prompts can name it.
+  const repos = new Map();
+  const refreshRepo = (project) => github?.status(project.workdir).then((st) => repos.set(project.id, st.web ?? st.remote)).catch(() => {});
+  const seen = (project) => ({ ...project, repo: repos.get(project.id) ?? null });
+
+  /** Sends approved work to GitHub. Boardroom does this itself, so no agent needs push rights. */
+  async function publish(projectId, why) {
+    const project = db.get('SELECT * FROM projects WHERE id = ?', projectId);
+    if (!project || !github) return { ok: false, skipped: true };
+    const res = await github.push(project.workdir);
+    if (res.ok) emit(projectId, 'ceo', `Boardroom pushed ${why} to GitHub.`);
+    else if (!res.skipped) emit(projectId, 'error', `Pushing to GitHub failed: ${res.error}`);
+    refreshRepo(project);
+    return res;
+  }
 
   const emit = (projectId, type, text, extra = {}) => {
     const row = { project_id: projectId, type, text: clip(text), ts: now(), task_id: extra.taskId ?? null, agent_id: extra.agentId ?? null };
@@ -124,6 +140,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     db.insert('agents', { project_id: id, role: 'designer', name: 'Designer' });
     updateProject(id, { devs: 2, ...input });
     emit(id, 'ceo', `The CEO founded the project “${name}”.`);
+    github?.setIdentity(workdir).catch(() => {});
+    refreshRepo({ id, workdir });
     return id;
   }
 
@@ -137,6 +155,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     if (['acceptEdits', 'bypassPermissions'].includes(patch.permission_mode)) next.permission_mode = patch.permission_mode;
     if (typeof patch.allowed_tools === 'string') next.allowed_tools = patch.allowed_tools.trim();
     if (typeof patch.model === 'string') next.model = patch.model.trim();
+    if (patch.auto_push !== undefined) next.auto_push = ['1', 'true', 1, true].includes(patch.auto_push) ? 1 : 0;
     if (patch.inherit_claude !== undefined) next.inherit_claude = ['1', 'true', 1, true].includes(patch.inherit_claude) ? 1 : 0;
     const int = (key, lo, hi) => {
       if (patch[key] !== undefined && patch[key] !== '') next[key] = Math.min(hi, Math.max(lo, Math.round(Number(patch[key])) || lo));
@@ -223,7 +242,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
       kind: 'chat',
       options: {
         prompt: chatPrompt({
-          project,
+          project: seen(project),
           handovers: handoversOf(project.id),
           conversation: conversationOf(project.id),
           pending: db.all("SELECT title FROM ideas WHERE project_id = ? AND status IN ('proposed', 'design')", project.id),
@@ -297,6 +316,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     if (!task) throw new Error('Task not found.');
     if (action === 'accept' && task.status === 'escalated') {
       setTask(task, { status: 'done' });
+      if (db.get('SELECT auto_push FROM projects WHERE id = ?', task.project_id)?.auto_push) publish(task.project_id, `“${task.title}”`);
       emit(task.project_id, 'ceo', `The CEO accepted “${task.title}” as it stands.`, { taskId });
     } else if (action === 'retry' && ['escalated', 'failed'].includes(task.status)) {
       setTask(task, { status: task.report ? 'changes' : 'queued', iteration: 0, failures: 0 });
@@ -324,7 +344,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     bus.emit('change', { projectId: project.id });
 
     const ctx = { taskId: task?.id, agentId: agent?.id };
-    const promise = runner({
+    const promise = Promise.resolve(github?.env().catch(() => ({})) ?? {}).then((env) => runner({
+      env,
       ...options,
       kind,
       system: rolePrompt(agent?.role),
@@ -335,7 +356,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
         if (e.type === 'limits') budget.record(e.info);
         else emit(project.id, e.type, e.text, ctx);
       },
-    })
+    }))
       .catch((err) => ({ ok: false, error: err.message, costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0 }))
       .then((res) => {
         busy.delete(key);
@@ -372,7 +393,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
       kind: 'ideate',
       options: {
         prompt: ideatePrompt({
-          project,
+          project: seen(project),
           handovers: handoversOf(project.id),
           count,
           done: db.all("SELECT title FROM tasks WHERE project_id = ? AND status = 'done' ORDER BY id DESC LIMIT 40", project.id),
@@ -419,7 +440,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
       kind: 'design',
       label: idea.title,
       options: {
-        prompt: designPrompt({ project, handovers: handoversOf(project.id), idea }),
+        prompt: designPrompt({ project: seen(project), handovers: handoversOf(project.id), idea }),
         tools: DESIGNER_TOOLS,
         allowedTools: DESIGNER_TOOLS,
         maxTurns: 40,
@@ -442,7 +463,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
   function build(project, dev, task, peers) {
     const revision = task.status === 'changes';
     const resume = revision && task.session_id && task.assignee === dev.id ? task.session_id : undefined;
-    const prompt = resume ? revisePrompt({ task }) : buildPrompt({ project, handovers: handoversOf(project.id), task, peers }) + (revision ? `\n\n## Review notes from the previous round\n${task.review_notes}` : '');
+    const prompt = resume ? revisePrompt({ task }) : buildPrompt({ project: seen(project), handovers: handoversOf(project.id), task, peers }) + (revision ? `\n\n## Review notes from the previous round\n${task.review_notes}` : '');
     setTask(task, { status: 'in_progress', assignee: dev.id });
     emit(project.id, 'assign', revision ? `PM → ${dev.name}: revise “${task.title}”.\n${task.review_notes}` : `PM → ${dev.name}: build “${task.title}”.`, { taskId: task.id, agentId: dev.id });
     start({
@@ -480,7 +501,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
       task,
       kind: 'review',
       options: {
-        prompt: reviewPrompt({ project, handovers: handoversOf(project.id), task }),
+        prompt: reviewPrompt({ project: seen(project), handovers: handoversOf(project.id), task }),
         tools: 'Read,Glob,Grep,Bash',
         allowedTools: PM_REVIEW_ALLOWED,
         schema: REVIEW_SCHEMA,
@@ -497,6 +518,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
         const notes = String(verdict.notes ?? '');
         if (verdict.verdict === 'approve') {
           setTask(current, { status: 'done', review_notes: notes });
+          if (project.auto_push) publish(project.id, `“${task.title}”`);
           emit(project.id, 'review', `PM approved “${task.title}”. ${notes}`, { taskId: task.id, agentId: pm.id });
         } else if (current.iteration + 1 >= project.max_iterations) {
           setTask(current, { status: 'escalated', review_notes: notes, iteration: current.iteration + 1 });
@@ -586,6 +608,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
 
   /** Work that was mid-flight when the server stopped goes back in the queue. */
   function recover() {
+    for (const p of db.all('SELECT id, workdir FROM projects')) refreshRepo(p);
     db.run("UPDATE runs SET status = 'interrupted', ended_at = ? WHERE status = 'running'", now());
     db.run("UPDATE tasks SET status = CASE WHEN report IS NULL THEN 'queued' ELSE 'changes' END WHERE status = 'in_progress'");
     // Projects founded before the designer role existed get one now.
@@ -596,6 +619,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
 
   return {
     createProject, updateProject, setStatus, deleteProject,
+    publish, refreshRepo,
     decideIdea, addDirective, ruleTask, summarize, tell, decidePermission, addRules, toolsOf, ownTools, inherited, modeOf,
     tick, recover,
     busy: () => busy,

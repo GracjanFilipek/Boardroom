@@ -57,5 +57,13 @@
     "icon": "electron/icon.png"
   },
   "productName": "Booardroom",
-  "license": "PolyForm-Noncommercial-1.0.0"
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "overrides": {
+    "app-builder-lib": {
+      "minimatch": "^11.0.8"
+    },
+    "@electron/universal": {
+      "minimatch": "^11.0.8"
+    }
+  }
 }

@@ -54,6 +54,20 @@ const avatar = (role, size = '', busy = false, name = '') =>
 const typing = () => h('span', { class: 'typing' }, h('i'), h('i'), h('i'));
 const empty = (glyph, title, text, action) => h('div', { class: 'empty' }, h('div', { class: 'tile' }, icon(glyph)), h('strong', null, title), text ? h('span', null, text) : null, action);
 
+/** Finder on a Mac, File Explorer on Windows. */
+const FILES_APP = /Mac/.test(navigator.platform) ? 'Finder' : /Win/.test(navigator.platform) ? 'File Explorer' : '';
+
+/** Asks the system for a folder: through the desktop shell when there is one, otherwise through the local server. */
+async function pickFolder() {
+  if (window.corp?.pickFolder) return window.corp.pickFolder();
+  return (await api('POST', '/api/pick-folder')).path;
+}
+
+function revealFolder(project) {
+  if (window.corp?.revealFolder) return window.corp.revealFolder(project.workdir);
+  return api('POST', `/api/projects/${project.id}/reveal`).catch((err) => toast(err.message));
+}
+
 // ---- state ------------------------------------------------------------------
 
 const S = { state: null, detail: null, sessions: null, query: '', detailLevel: false, expanded: new Set() };
@@ -533,7 +547,9 @@ function projectView(r) {
         h('div', null,
           h('div', { class: 'section-head' }, h('h2', null, 'Latest'), h('a', { class: 'btn quiet', href: `#/p/${p.id}/activity` }, 'All activity')),
           messages.length ? h('div', { class: 'timeline' }, events.filter((e) => e.type !== 'tool' && e.type !== 'say').slice(0, 7).map((e) => item(e, { compact: true }))) : empty('clock', 'Quiet so far'))),
-      h('p', { class: 'small muted mono', style: 'margin-top:2rem' }, p.workdir));
+      h('div', { class: 'actions', style: 'margin-top:2rem' },
+        h('span', { class: 'small muted mono', style: 'min-width:0;overflow-wrap:anywhere' }, p.workdir),
+        h('button', { class: 'btn quiet', onclick: () => revealFolder(p) }, icon('archive'), FILES_APP ? `Show in ${FILES_APP}` : 'Open folder')));
   }
   return h('div', { 'data-view': `project-${p.id}-${r.tab}` }, header, body);
 }
@@ -556,10 +572,25 @@ function projectForm(p, devCount = 2) {
   const v = p ?? { name: '', brief: '', approval: 'ceo', ideas_per_round: 3, max_iterations: 2, max_turns: 40, daily_task_cap: 10, permission_mode: 'acceptEdits', allowed_tools: '', model: '' };
   const select = (name, options, value) => h('select', { name }, options.map(([val, label]) => h('option', { value: val, selected: String(val) === String(value) }, label)));
   const number = (name, value, min, max) => h('input', { name, type: 'number', min, max, value: String(value), inputmode: 'numeric' });
+  const folderInput = h('input', { name: 'workdir', id: 'workdir', placeholder: 'No folder chosen' });
+  const choose = async () => {
+    try {
+      const dir = await pickFolder();
+      if (!dir) return;
+      folderInput.value = dir;
+      // A fresh project usually takes the folder's name.
+      const nameInput = form.elements.name;
+      if (!nameInput.value.trim()) nameInput.value = dir.split(/[\\/]/).filter(Boolean).pop() ?? '';
+    } catch (err) {
+      toast(err.message);
+    }
+  };
   const form = h('form', null,
     h('label', { class: 'field' }, h('span', null, 'Name'), h('input', { name: 'name', required: true, value: v.name, placeholder: 'Invoice app' })),
     h('label', { class: 'field' }, h('span', null, 'Brief'), h('textarea', { name: 'brief', placeholder: 'What the product does, who uses it, what matters this month.' }, v.brief), h('small', null, 'The project manager plans from this text. Agents read it before each run.')),
-    p ? null : h('label', { class: 'field' }, h('span', null, 'Folder'), h('input', { name: 'workdir', placeholder: '~/code/invoice-app' }), h('small', null, 'An existing repository on this machine. Leave empty and Agent Corp creates a fresh git workspace.')),
+    p ? null : h('div', { class: 'field' }, h('label', { for: 'workdir' }, h('span', null, 'Folder')),
+      h('div', { class: 'pick' }, folderInput, h('button', { class: 'btn', type: 'button', onclick: choose }, icon('archive'), FILES_APP ? `Choose in ${FILES_APP}` : 'Choose folder')),
+      h('small', null, 'An existing repository on this machine. Leave empty and Agent Corp creates a fresh git workspace.')),
     h('div', { class: 'row2' },
       h('label', { class: 'field' }, h('span', null, 'Who approves proposals'), select('approval', [['ceo', 'You approve each one'], ['auto', 'Autopilot, no approval']], v.approval)),
       h('label', { class: 'field' }, h('span', null, 'Developers'), select('devs', [1, 2, 3, 4, 5, 6].map((n) => [n, String(n)]), devCount))),
@@ -677,16 +708,14 @@ const SOURCE = { 'claude-code': ['terminal', 'Claude Code'], 'claude-ai': ['chat
 function archiveView() {
   const q = S.query.trim().toLowerCase();
   const sessions = (S.sessions ?? []).filter((s) => !q || s.title.toLowerCase().includes(q) || s.where.toLowerCase().includes(q));
-  const picker = h('input', { type: 'file', accept: '.json,application/json', hidden: true, onchange: (e) => importFile(e.target.files[0]) });
   return h('div', { 'data-view': 'archive' },
     h('div', null,
       h('h1', { class: 'display' }, 'Archive'),
       h('p', { class: 'lede' }, 'Claude Code sessions from this machine show up on their own, the desktop app’s Code tab included. Chats from claude.ai arrive through a data export. Open a chat and hand it to a project.')),
     h('div', { class: 'actions', style: 'margin-top:1.5rem' },
       h('div', { class: 'search-wrap' }, icon('search'), h('input', { class: 'search', type: 'search', placeholder: 'Search titles and folders', 'aria-label': 'Search', value: S.query, oninput: (e) => { S.query = e.target.value; render(); } })),
-      h('button', { class: 'btn', onclick: () => picker.click() }, icon('handover'), 'Import claude.ai export'),
-      h('button', { class: 'btn', onclick: noteSheet }, icon('plus'), 'Paste a note'),
-      picker),
+      h('button', { class: 'btn', onclick: importSheet }, icon('handover'), 'Import from claude.ai'),
+      h('button', { class: 'btn', onclick: noteSheet }, icon('plus'), 'Paste a note')),
     h('div', { style: 'margin-top:1.2rem' },
       !S.sessions
         ? empty('clock', 'Reading sessions…')
@@ -700,7 +729,7 @@ function archiveView() {
             }))
           : q
             ? empty('search', 'No chat matches', 'Try a shorter search.')
-            : empty('archive', 'No chats yet', 'Run Claude Code on this machine, or import conversations.json from claude.ai (Settings, Privacy, Export data).')),
+            : empty('archive', 'No chats yet', 'Run Claude Code on this machine, or import your chats from claude.ai.')),
   );
 }
 
@@ -709,10 +738,27 @@ async function reloadSessions() {
   render();
 }
 
+/** claude.ai chats live on Anthropic's servers, so there is no file to find until you request one. This walks through it. */
+function importSheet() {
+  const picker = h('input', { type: 'file', accept: '.zip,.json,application/zip,application/json', hidden: true, onchange: (e) => { sheet.close(); importFile(e.target.files[0]); } });
+  const step = (n, title, text) => h('div', { class: 'howto' }, h('b', null, n), h('div', null, h('strong', null, title), h('p', null, text)));
+  const sheet = openSheet({
+    title: 'Import chats from claude.ai',
+    body: h('div', null,
+      h('p', { class: 'muted', style: 'margin-bottom:1rem' }, 'Chats from claude.ai and the desktop app’s Chat tab are stored on Anthropic’s servers. No copy exists on this computer until you ask for an export.'),
+      step('1', 'Request the export', ['Open ', h('a', { href: 'https://claude.ai/settings/data-privacy-controls', target: '_blank', rel: 'noopener' }, 'claude.ai, Settings, Privacy'), ' and press Export data.']),
+      step('2', 'Wait for the email', 'Anthropic emails you a download link, usually within minutes. The link expires after 24 hours.'),
+      step('3', 'Download the zip', 'It lands in your Downloads folder with a name that starts with “data-”.'),
+      step('4', 'Pick it here', 'Choose the zip as it is. Agent Corp reads conversations.json out of it. Nothing leaves this computer.'),
+      picker),
+    foot: [h('button', { class: 'btn primary', onclick: () => picker.click() }, icon('handover'), 'Choose the export file')],
+  });
+}
+
 async function importFile(file) {
   if (!file) return;
   try {
-    const res = await fetch('/api/history/import', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: file });
+    const res = await fetch('/api/history/import', { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body: file });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error);
     toast(`Imported ${data.imported} ${data.imported === 1 ? 'chat' : 'chats'}.`, 'check');

@@ -211,6 +211,13 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
 }
 .field input:focus, .field textarea:focus, .field select:focus, .search:focus { outline: 2px solid var(--ink); outline-offset: -1px; border-color: var(--ink); }
 .field textarea { min-height: 6.5rem; resize: vertical; line-height: 1.4; }
+.howto { display: grid; grid-template-columns: 1.6rem 1fr; gap: 0.8rem; padding: 0.8rem 0; border-top: 1px solid var(--line); }
+.howto b { font: 700 0.7rem/1.6rem var(--mono); width: 1.6rem; height: 1.6rem; text-align: center; background: var(--tile); border-radius: 3px; }
+.howto strong { font-size: 0.92rem; font-weight: 650; }
+.howto p { font-size: 0.86rem; color: var(--text-2); margin-top: 0.1rem; }
+.pick { display: flex; gap: 0.5rem; }
+.pick input { flex: 1; min-width: 0; }
+.field label > span { font-size: 0.83rem; font-weight: 600; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 1rem; align-items: start; }
 
 /* ---- surfaces ---- */

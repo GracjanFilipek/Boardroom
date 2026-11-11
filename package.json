@@ -50,6 +50,8 @@
         "AppImage"
       ],
       "category": "Development"
-    }
-  }
+    },
+    "icon": "electron/icon.png"
+  },
+  "productName": "Agent Corp"
 }

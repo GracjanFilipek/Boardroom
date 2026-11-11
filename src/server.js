@@ -8,6 +8,8 @@ import { createBudget } from './budget.js';
 import { runClaude, createMockRunner } from './claude.js';
 import { createOrchestrator, DEFAULT_DEV_TOOLS } from './orchestrator.js';
 import { createHistory, transcriptText } from './history.js';
+import { pickFolder, revealFolder } from './native.js';
+import { unzipEntry } from './zip.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -92,6 +94,12 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     ['POST', /^\/api\/projects\/(\d+)\/(start|pause)$/, ({ m }) => orch.setStatus(+m[1], m[2] === 'start' ? 'active' : 'paused')],
     ['POST', /^\/api\/projects\/(\d+)\/directives$/, ({ m, body }) => orch.addDirective(+m[1], body)],
     ['POST', /^\/api\/ideas\/(\d+)\/(approve|reject)$/, ({ m, body }) => orch.decideIdea(+m[1], m[2] === 'approve', 'ceo', String(body.reason || '').slice(0, 500))],
+    ['POST', /^\/api\/pick-folder$/, async () => ({ path: await pickFolder() })],
+    ['POST', /^\/api\/projects\/(\d+)\/reveal$/, ({ m }) => {
+      const project = db.get('SELECT workdir FROM projects WHERE id = ?', +m[1]);
+      if (!project) throw httpError(404, 'Project not found.');
+      revealFolder(project.workdir);
+    }],
     ['GET', /^\/api\/tasks\/(\d+)$/, ({ m }) => {
       const task = db.get('SELECT * FROM tasks WHERE id = ?', +m[1]);
       if (!task) throw httpError(404, 'Task not found.');
@@ -109,7 +117,21 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     }],
     ['GET', /^\/api\/history$/, ({ url }) => ({ sessions: history.list(url.searchParams.get('q') || ''), root: history.root })],
     ['GET', /^\/api\/history\/chat$/, ({ url }) => history.read(url.searchParams.get('source'), url.searchParams.get('id') || '')],
-    ['POST', /^\/api\/history\/import$/, ({ body }) => ({ imported: history.importExport(body) })],
+    ['POST', /^\/api\/history\/import$/, ({ raw }) => {
+      // Takes the export as it arrives from claude.ai (a zip) or the conversations.json inside it.
+      let json = raw;
+      if (raw.length > 3 && raw[0] === 0x50 && raw[1] === 0x4b) {
+        json = unzipEntry(raw, (name) => /(^|\/)conversations\.json$/.test(name));
+        if (!json) throw httpError(400, 'This zip has no conversations.json. Pick the archive claude.ai sent you.');
+      }
+      let data;
+      try {
+        data = JSON.parse(json.toString('utf8'));
+      } catch {
+        throw httpError(400, 'This file is not a claude.ai export. Pick the zip from claude.ai, or the conversations.json inside it.');
+      }
+      return { imported: history.importExport(data) };
+    }],
     ['POST', /^\/api\/history\/notes$/, ({ body }) => ({ id: history.addNote(body.title, body.text) })],
     ['DELETE', /^\/api\/history\/chat\/(\d+)$/, ({ m }) => history.remove(m[1])],
     ['POST', /^\/api\/projects\/(\d+)\/handovers$/, async ({ m, body }) => {
@@ -168,8 +190,10 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
         for (const [method, pattern, fn] of routes) {
           const m = req.method === method && url.pathname.match(pattern);
           if (!m) continue;
-          const body = req.method === 'GET' ? {} : await readJson(req);
-          const out = await fn({ m, body, url });
+          const wantsRaw = url.pathname === '/api/history/import';
+          const raw = req.method === 'GET' ? null : await readBody(req);
+          const body = raw && !wantsRaw ? parseJson(raw) : {};
+          const out = await fn({ m, body, raw, url });
           return send(res, 200, out ?? { ok: true });
         }
         throw httpError(404, 'No such endpoint.');
@@ -200,7 +224,16 @@ function httpError(status, message) {
   return Object.assign(new Error(message), { status });
 }
 
-function readJson(req, limit = 256 * 1024 * 1024) {
+function parseJson(raw) {
+  if (!raw.length) return {};
+  try {
+    return JSON.parse(raw.toString('utf8'));
+  } catch {
+    throw httpError(400, 'The request body is not valid JSON.');
+  }
+}
+
+function readBody(req, limit = 512 * 1024 * 1024) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
@@ -211,14 +244,7 @@ function readJson(req, limit = 256 * 1024 * 1024) {
         req.destroy();
       } else chunks.push(c);
     });
-    req.on('end', () => {
-      if (!size) return resolve({});
-      try {
-        resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-      } catch {
-        reject(httpError(400, 'The request body is not valid JSON.'));
-      }
-    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
     req.on('error', reject);
   });
 }

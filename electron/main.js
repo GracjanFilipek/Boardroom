@@ -1,7 +1,7 @@
 // Desktop shell. Starts the Agent Corp server inside the app on a private local port
 // and shows it in a window. Data lives in the per-user application folder.
 
-import { app, BrowserWindow, Menu, shell, dialog } from 'electron';
+import { app, BrowserWindow, Menu, shell, dialog, ipcMain } from 'electron';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,6 +10,10 @@ import { fileURLToPath } from 'node:url';
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mock = process.env.CORP_RUNNER === 'mock';
+const iconFile = path.join(root, 'electron', 'icon.png');
+
+app.setName('Agent Corp');
+app.setAboutPanelOptions({ applicationName: 'Agent Corp', applicationVersion: app.getVersion(), iconPath: iconFile });
 let win = null;
 let origin = null;
 let stopServer = () => {};
@@ -82,11 +86,12 @@ function createWindow() {
     minHeight: 560,
     show: false,
     title: 'Agent Corp',
+    icon: iconFile,
     backgroundColor: '#f5f4ef',
     titleBarStyle: mac ? 'hiddenInset' : 'default',
     trafficLightPosition: mac ? { x: 16, y: 18 } : undefined,
     autoHideMenuBar: true,
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(root, 'electron', 'preload.cjs') },
   });
   win.once('ready-to-show', () => win.show());
   win.on('closed', () => (win = null));
@@ -105,6 +110,15 @@ function createWindow() {
   win.loadURL(`${origin}/${mac ? '?shell=mac' : '?shell=desktop'}`);
 }
 
+// The page asks for a folder; the dialog opens as a sheet on the window, the way Finder and Explorer users expect.
+ipcMain.handle('pick-folder', async () => {
+  const res = await dialog.showOpenDialog(win, { title: 'Choose the project folder', buttonLabel: 'Choose', properties: ['openDirectory', 'createDirectory'] });
+  return res.canceled ? null : res.filePaths[0];
+});
+ipcMain.handle('reveal-folder', (_event, dir) => {
+  if (typeof dir === 'string' && fs.existsSync(dir)) shell.openPath(dir);
+});
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -116,6 +130,8 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(async () => {
     locateClaude();
+    // Started with `npm run app`, the Dock would show Electron's own icon.
+    if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(iconFile);
     const dataDir = process.env.CORP_DATA_DIR ? path.resolve(process.env.CORP_DATA_DIR) : path.join(app.getPath('userData'), mock ? 'demo' : 'company');
     try {
       origin = await startInProcess(dataDir).catch((err) => {

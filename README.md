@@ -37,7 +37,7 @@ The app runs the same server inside itself on a private local port, so nothing e
 
 ## How work flows
 
-1. **Found a project.** Give it a name, a brief and a folder. Leave the folder empty and you get a fresh git workspace under `data/workspaces`.
+1. **Found a project.** Give it a name, a brief and a folder. Pick the folder in Finder or File Explorer with the Choose button, or type the path. Leave the folder empty and you get a fresh git workspace under `data/workspaces`.
 2. **Start it.** The project manager reads the repository (read-only tools) and returns proposals as structured output.
 3. **Design.** A proposal that changes what a person sees or does goes to the designer first, who writes a design spec for it. The spec travels with the task to the developer.
 4. **Decide.** Approve or reject in the Boardroom. A rejection can carry a reason, and the project manager reads it before the next round. On autopilot this step disappears.

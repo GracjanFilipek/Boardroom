@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import zlib from 'node:zlib';
 import { createApp } from '../src/server.js';
 import { createMockRunner } from '../src/claude.js';
 import { openDb } from '../src/db.js';
@@ -135,6 +136,26 @@ test('the archive reads Claude Code sessions and claude.ai exports, and hands th
   assert.equal((await post(`/api/projects/${id}/handovers`, { source: 'claude-code', id: '-home-me-shop/abc-123', summarize: true })).status, 200);
   assert.match(db.get('SELECT body FROM handovers').body, /Handover brief/);
   assert.equal((await post('/api/projects', { name: 'Evil' }, { Origin: 'https://evil.example' })).status, 403);
+
+  // The export arrives from claude.ai as a zip. Build a small one and import it untouched.
+  const zip = (name, text, deflate) => {
+    const raw = Buffer.from(text);
+    const data = deflate ? zlib.deflateRawSync(raw) : raw;
+    const head = Buffer.alloc(30);
+    head.writeUInt32LE(0x04034b50, 0); head.writeUInt16LE(deflate ? 8 : 0, 8); head.writeUInt32LE(data.length, 18); head.writeUInt32LE(raw.length, 22); head.writeUInt16LE(name.length, 26);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0); central.writeUInt16LE(deflate ? 8 : 0, 10); central.writeUInt32LE(data.length, 20); central.writeUInt32LE(raw.length, 24); central.writeUInt16LE(name.length, 28);
+    const end = Buffer.alloc(22);
+    end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10); end.writeUInt32LE(46 + name.length, 12); end.writeUInt32LE(30 + name.length + data.length, 16);
+    return Buffer.concat([head, Buffer.from(name), data, central, Buffer.from(name), end]);
+  };
+  const exported = JSON.stringify([{ uuid: 'z1', name: 'From the zip', chat_messages: [{ sender: 'human', text: 'hello' }] }]);
+  for (const deflate of [true, false]) {
+    const res = await fetch(base + '/api/history/import', { method: 'POST', body: zip('data-2026/conversations.json', exported, deflate) });
+    assert.deepEqual(await res.json(), { imported: 1 });
+  }
+  assert.ok(history.list().some((s) => s.title === 'From the zip'));
+  assert.equal((await fetch(base + '/api/history/import', { method: 'POST', body: zip('users.json', '[]', true) })).status, 400);
   close();
 });
 

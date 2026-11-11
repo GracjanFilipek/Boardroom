@@ -1,6 +1,5 @@
 // DOM toolkit: element builder, keyed morph, and the layout animations that ride on it.
 
-const SVG = 'http://www.w3.org/2000/svg';
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
@@ -13,16 +12,6 @@ export function h(tag, attrs, ...kids) {
   }
   el.append(...kids.flat(Infinity).filter((k) => k != null && k !== false));
   return el;
-}
-
-export function icon(name) {
-  const svg = document.createElementNS(SVG, 'svg');
-  svg.setAttribute('class', 'icon');
-  svg.setAttribute('aria-hidden', 'true');
-  const use = document.createElementNS(SVG, 'use');
-  use.setAttribute('href', `#i-${name}`);
-  svg.append(use);
-  return svg;
 }
 
 const alive = (el) => el && !el._leaving;

@@ -105,6 +105,7 @@ src/prompts.js       what each role is told
 public/app.js        views
 public/dom.js        element builder, keyed morph, layout animations
 public/motion.js     springs and the draggable sheet
+public/pixels.js     pixel-art icons and agent portraits, drawn on a 10 by 10 grid
 ```
 
 Built against Claude Code 2.1.

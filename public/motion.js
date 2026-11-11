@@ -1,3 +1,5 @@
+import { icon } from './pixels.js';
+
 // Spring motion and the sheet component. Springs start from the live value and carry
 // velocity, so a sheet can be grabbed or re-targeted mid-flight without a jump.
 
@@ -68,7 +70,8 @@ export function openSheet({ title, body, foot, wide = false, onClose }) {
 
   const head = document.createElement('header');
   head.className = 'sheet-head';
-  head.innerHTML = '<span class="grabber"></span><h2></h2><button class="btn icon-only" aria-label="Close"><svg class="icon"><use href="#i-x"/></svg></button>';
+  head.innerHTML = '<span class="grabber"></span><h2></h2><button class="btn quiet icon-only" aria-label="Close"></button>';
+  head.querySelector('button').append(icon('x'));
   head.querySelector('h2').textContent = title;
   const bodyEl = Object.assign(document.createElement('div'), { className: 'sheet-body' });
   bodyEl.append(body);

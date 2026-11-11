@@ -1,5 +1,6 @@
 import { openSheet } from './motion.js';
-import { h, icon, morph, flip, rollNumbers, placePill } from './dom.js';
+import { h, morph, flip, rollNumbers, placePill } from './dom.js';
+import { icon, portrait } from './pixels.js';
 
 // ---- helpers ----------------------------------------------------------------
 
@@ -42,14 +43,16 @@ const elapsed = (since) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 const num = (value, fmt) => h('span', { 'data-num': String(value), 'data-fmt': fmt }, '');
-const hue = (id) => (id * 67 + 230) % 360;
+const TILE_COLORS = ['#c2410c', '#1d6f8f', '#3f6b2a', '#8a3d6b', '#5b4bb0', '#9a6a00'];
 const monogram = (p, size = '', status = true) =>
-  h('span', { class: `mono-tile ${size}`, style: `--hue:${hue(p.id)}` }, p.name.trim()[0]?.toUpperCase() ?? '?',
+  h('span', { class: `mono-tile ${size}`, style: `--c:${TILE_COLORS[p.id % TILE_COLORS.length]}` }, p.name.trim()[0]?.toUpperCase() ?? '?',
     status ? h('i', { class: `status ${p.working ? 'busy' : p.status === 'active' ? 'on' : ''}` }) : null);
-const avatar = (role, size = '', busy = false) =>
-  h('span', { class: `avatar ${role} ${size}${busy ? ' busy' : ''}` }, icon({ ceo: 'crown', pm: 'pm', dev: 'dev', sys: 'alert' }[role]));
+const avatar = (role, size = '', busy = false, name = '') =>
+  role === 'sys'
+    ? h('span', { class: `tile bad ${size}` }, icon('alert'))
+    : h('span', { class: `avatar ${size}${busy ? ' busy' : ''}` }, portrait(role, name));
 const typing = () => h('span', { class: 'typing' }, h('i'), h('i'), h('i'));
-const empty = (glyph, title, text, action) => h('div', { class: 'empty' }, h('div', { class: 'glyph' }, icon(glyph)), h('strong', null, title), text ? h('span', null, text) : null, action);
+const empty = (glyph, title, text, action) => h('div', { class: 'empty' }, h('div', { class: 'tile' }, icon(glyph)), h('strong', null, title), text ? h('span', null, text) : null, action);
 
 // ---- state ------------------------------------------------------------------
 
@@ -116,13 +119,18 @@ function tickTimers() {
 
 // ---- shell ------------------------------------------------------------------
 
-function ring(budget, size = '') {
+/** Ten cells that fill as agents burn through their share. */
+function cells(budget, size = '') {
   const w = budget.windows[budget.config.window];
   const share = budget.config.sharePct;
   const fraction = !w ? 0 : share ? Math.min(1, w.agentsPct / share) : w.usedPct / 100;
-  const svg = h('span');
-  svg.innerHTML = `<svg class="ring ${size}${!budget.gate.ok ? ' warn' : ''}" viewBox="0 0 40 40"><circle class="track" cx="20" cy="20" r="16"/><circle class="value" cx="20" cy="20" r="16" stroke-dasharray="100.53" stroke-dashoffset="${(100.53 * (1 - fraction)).toFixed(2)}"/></svg>`;
-  return svg.firstChild;
+  const lit = fraction > 0 ? Math.max(1, Math.round(fraction * 10)) : 0;
+  return h('div', { class: `cells ${size}${budget.gate.ok ? '' : ' warn'}` }, Array.from({ length: 10 }, (_, i) => h('i', { class: i < lit ? 'on' : null })));
+}
+
+function budgetShare(budget) {
+  const w = budget.windows[budget.config.window];
+  return w ? `${budget.config.sharePct ? w.agentsPct : w.usedPct}%` : '0%';
 }
 
 function budgetLine(budget) {
@@ -150,7 +158,7 @@ function sidebar(r) {
           p.proposed + p.attention ? h('span', { class: 'badge' }, String(p.proposed + p.attention)) : null)),
       h('button', { class: 'nav-item', onclick: () => projectForm() }, icon('plus'), h('span', { class: 'grow' }, 'New project'))),
     h('div', { class: 'sidebar-foot' },
-      h('button', { class: 'budget-card', onclick: budgetSheet }, ring(budget), h('div', null, h('strong', null, 'Budget'), h('small', null, budgetLine(budget)))),
+      h('button', { class: 'budget-card', onclick: budgetSheet }, h('strong', null, 'Budget', h('span', null, budgetShare(budget))), cells(budget), h('small', null, budgetLine(budget))),
       h('div', { class: 'you' }, avatar('ceo', 'sm'), h('div', null, h('strong', null, 'You'), h('small', null, 'Chief Executive')))),
   );
 }
@@ -250,32 +258,29 @@ function palette() {
 
 function boardView() {
   const { projects, inbox, stats, budget, feed } = S.state;
-  const hourNow = new Date().getHours();
-  const greeting = hourNow < 5 ? 'Working late' : hourNow < 12 ? 'Good morning' : hourNow < 18 ? 'Good afternoon' : 'Good evening';
-
   if (!projects.length) {
     return h('div', { 'data-view': 'welcome' },
       h('div', { class: 'card welcome' },
-        h('div', { class: 'welcome-art' }, avatar('pm'), avatar('ceo'), avatar('dev')),
+        h('div', { class: 'welcome-art' }, avatar('ceo', 'lg'), avatar('pm', 'lg'), avatar('dev', 'lg', false, 'Ada'), avatar('dev', 'lg', false, 'Linus')),
         h('h2', null, 'Your company has no projects yet'),
         h('p', null, 'Found one and a project manager with two developers joins it. They run on your Claude Code login.'),
-        h('button', { class: 'btn primary', style: 'margin-top:.8rem', onclick: () => projectForm() }, icon('plus'), 'Found a project'),
-        h('div', { class: 'steps', style: 'margin-top:2rem;text-align:left' },
-          h('div', { class: 'step' }, h('b', null, '1'), h('strong', null, 'The manager proposes'), 'It reads the repository and drafts work orders.'),
-          h('div', { class: 'step' }, h('b', null, '2'), h('strong', null, 'You decide'), 'Approve, reject, or switch on autopilot and step out.'),
-          h('div', { class: 'step' }, h('b', null, '3'), h('strong', null, 'Developers ship'), 'They build, the manager reviews, disputes come to you.'))));
+        h('div', null, h('button', { class: 'btn primary', style: 'margin-top:.8rem', onclick: () => projectForm() }, icon('plus'), 'Found a project')),
+        h('div', { class: 'steps' },
+          h('div', { class: 'step' }, h('b', null, '01'), h('strong', null, 'The manager proposes'), 'It reads the repository and drafts work orders.'),
+          h('div', { class: 'step' }, h('b', null, '02'), h('strong', null, 'You decide'), 'Approve, reject, or switch on autopilot and step out.'),
+          h('div', { class: 'step' }, h('b', null, '03'), h('strong', null, 'Developers ship'), 'They build, the manager reviews, disputes come to you.'))));
   }
 
   return h('div', { 'data-view': 'board' },
     h('div', null,
-      h('h1', { class: 'display' }, `${greeting}.`),
+      h('h1', { class: 'display' }, 'Boardroom'),
       h('p', { class: 'lede' }, inbox.length ? `${inbox.length} ${inbox.length === 1 ? 'decision waits' : 'decisions wait'} for you.` : 'No decisions wait for you.'),
       holdBanner()),
     h('div', { class: 'stats-row' },
-      h('div', { class: 'card stat' }, h('div', { class: 'glyph gold' }, icon('crown')), h('b', null, num(inbox.length)), h('span', null, 'Decisions waiting')),
-      h('div', { class: 'card stat' }, h('div', { class: 'glyph green' }, icon('bolt')), h('b', null, num(stats.working), h('small', null, ` / ${stats.headcount}`)), h('span', null, 'Agents working')),
-      h('div', { class: 'card stat' }, h('div', { class: 'glyph teal' }, icon('box')), h('b', null, num(stats.shippedToday)), h('span', null, 'Shipped today')),
-      h('div', { class: 'card stat' }, h('div', { class: 'glyph' }, icon('gauge')), h('b', null, num(budget.today.usd, 'usd')), h('span', null, `${budget.today.runs} runs today, API prices`))),
+      h('div', { class: 'stat' }, h('div', { class: 'tile' }, icon('crown')), h('b', null, num(inbox.length)), h('span', null, 'Decisions waiting')),
+      h('div', { class: 'stat' }, h('div', { class: 'tile' }, icon('bolt')), h('b', null, num(stats.working), h('small', null, ` / ${stats.headcount}`)), h('span', null, 'Agents working')),
+      h('div', { class: 'stat' }, h('div', { class: 'tile' }, icon('box')), h('b', null, num(stats.shippedToday)), h('span', null, 'Shipped today')),
+      h('div', { class: 'stat' }, h('div', { class: 'tile' }, icon('gauge')), h('b', null, num(budget.today.usd, 'usd')), h('span', null, `${budget.today.runs} runs today, API prices`))),
     h('div', { class: 'split' },
       h('div', null,
         h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', inbox.length ? h('span', { class: 'count hot' }, String(inbox.length)) : null)),
@@ -295,7 +300,7 @@ function boardView() {
           h('div', { class: 'project-top' },
             monogram(p, 'md', false),
             h('div', { style: 'min-width:0' }, h('h3', null, p.name), h('small', null, p.status === 'active' ? (p.working ? `${p.working} working now` : 'Running') : 'Paused', ' · ', p.approval === 'auto' ? 'Autopilot' : 'You approve')),
-            h('div', { class: 'faces' }, p.agents.slice(0, 5).map((a) => avatar(a.role, 'xs', Boolean(a.job))))),
+            h('div', { class: 'faces' }, p.agents.slice(0, 6).map((a) => avatar(a.role, 'xs', Boolean(a.job), a.name)))),
           h('div', { class: 'meter' }, h('i', { style: `width:${total ? (p.done / total) * 100 : 0}%` })),
           h('div', { class: 'minis' },
             h('span', null, h('b', null, String(p.proposed)), 'proposed'),
@@ -379,7 +384,7 @@ function timelineItem(e, { compact = false, project, role, name } = {}) {
   const open = S.expanded.has(e.id);
   const text = who.text.charAt(0).toUpperCase() + who.text.slice(1);
   return h('div', { class: `tl-item enter${compact ? ' compact' : ''}`, 'data-key': `e${e.id}`, 'data-flip': `e${e.id}` },
-    avatar(who.role, compact ? 'xs' : 'sm'),
+    avatar(who.role, compact ? 'xs' : 'sm', false, who.name),
     h('div', { style: 'min-width:0' },
       h('div', { class: 'tl-head' },
         h('strong', null, who.name),
@@ -410,7 +415,7 @@ function projectView(r) {
     const what = job?.kind === 'ideate' ? 'Drafting proposals' : job?.kind === 'review' ? `Reviewing “${taskTitle(job.taskId)}”` : job?.kind === 'build' ? `Building “${taskTitle(job.taskId)}”` : '';
     const idle = !a ? null : !active ? 'Off the clock' : a.role === 'pm' && proposed.length ? 'Waiting for you' : 'Idle';
     return h('div', { class: `node${job ? ' live' : ''}` },
-      avatar(role, '', Boolean(job)),
+      avatar(role, '', Boolean(job), name),
       h('strong', null, name),
       h('span', { class: 'role' }, title),
       a ? h('span', { class: 'doing' }, job ? [typing(), h('span', { 'data-since': String(job.since) }, elapsed(job.since))] : idle) : null,
@@ -447,10 +452,10 @@ function projectView(r) {
   let body;
   if (r.tab === 'board') {
     const lanes = [
-      ['Queued', '#8f8f99', tasks.filter((t) => ['queued', 'changes'].includes(t.status)).reverse()],
-      ['Building', '#2fbf5b', tasks.filter((t) => t.status === 'in_progress')],
-      ['In review', '#8e6bf0', tasks.filter((t) => t.status === 'review')],
-      ['Shipped', '#19a1b3', tasks.filter((t) => t.status === 'done').slice(0, 10)],
+      ['Queued', 'var(--text-3)', tasks.filter((t) => ['queued', 'changes'].includes(t.status)).reverse()],
+      ['Building', 'var(--green)', tasks.filter((t) => t.status === 'in_progress')],
+      ['In review', 'var(--orange)', tasks.filter((t) => t.status === 'review')],
+      ['Shipped', 'var(--ink)', tasks.filter((t) => t.status === 'done').slice(0, 10)],
     ];
     body = h('div', { class: 'pipeline' }, lanes.map(([name, color, list]) =>
       h('div', { class: 'lane' },
@@ -463,7 +468,7 @@ function projectView(r) {
                 h('span', { class: 'ticket-id' }, `AC-${t.id}`),
                 t.title,
                 h('span', { class: 'ticket-meta' },
-                  who ? [avatar('dev', 'xs', t.status === 'in_progress'), who.name] : 'Unassigned',
+                  who ? [avatar('dev', 'xs', t.status === 'in_progress', who.name), who.name] : 'Unassigned',
                   h('span', { class: 'push' },
                     t.status === 'changes' ? h('span', { class: 'chip orange' }, 'Revise') : null,
                     t.iteration > 0 ? h('span', { class: 'chip' }, `Round ${t.iteration + 1}`) : null,
@@ -488,7 +493,7 @@ function projectView(r) {
       handovers.length
         ? h('div', { class: 'stack' }, handovers.map((ho) =>
             h('div', { class: 'card decision enter', 'data-key': `ho${ho.id}`, 'data-flip': `ho${ho.id}` },
-              h('div', { class: 'decision-head' }, icon('handover'), h('strong', null, ho.summarized ? 'Brief written by Claude' : 'Raw transcript'), h('span', null, ago(ho.created_at)),
+              h('div', { class: 'decision-head' }, h('span', { class: 'tile xs' }, icon('handover')), h('strong', null, ho.summarized ? 'Brief written by Claude' : 'Raw transcript'), h('span', null, ago(ho.created_at)),
                 h('button', { class: 'btn quiet icon-only', style: 'margin-left:auto', 'aria-label': 'Remove handover', onclick: () => act(() => api('DELETE', `/api/handovers/${ho.id}`)) }, icon('trash'))),
               h('h3', null, ho.title),
               h('details', null, h('summary', null, icon('chevron'), 'Read'), h('div', { class: 'plan' }, ho.body)))))
@@ -633,14 +638,14 @@ function gauge(budget, name) {
 function budgetSheet() {
   const { budget } = S.state;
   const c = budget.config;
-  const w = budget.windows[c.window];
   const number = (name, value, max, step = 1) => h('input', { name, type: 'number', min: 0, max, step, value: String(value), inputmode: 'decimal' });
   const form = h('form', null,
-    h('div', { class: 'budget-hero' }, ring(budget, 'lg'),
-      h('div', null, h('b', null, w ? `${w.agentsPct}%` : '0%', c.sharePct ? h('span', { class: 'muted', style: 'font-size:1rem;font-weight:600' }, ` of ${c.sharePct}%`) : null),
-        h('span', { class: 'small muted' }, `${budgetLine(budget)}. Today: ${budget.today.runs} runs, ${usd(budget.today.usd)} at API prices.`))),
+    h('div', { class: 'budget-hero' },
+      h('b', null, budgetShare(budget), c.sharePct ? h('span', null, ` of ${c.sharePct}% share`) : h('span', null, ' of the window')),
+      cells(budget, 'lg'),
+      h('span', { class: 'small muted' }, `${budgetLine(budget)}. Today: ${budget.today.runs} runs, ${usd(budget.today.usd)} at API prices.`)),
     h('div', { class: 'stack', style: 'margin-bottom:.8rem' }, gauge(budget, 'five_hour'), gauge(budget, 'seven_day')),
-    h('p', { class: 'small muted', style: 'margin-bottom:1.4rem' }, 'Grey shows the whole window, violet the part your agents used, the red mark the ceiling. Claude Code reports these numbers after each run.'),
+    h('p', { class: 'small muted', style: 'margin-bottom:1.4rem' }, 'Grey shows the whole window, black the part your agents used, the red mark the ceiling. Claude Code reports these numbers after each run.'),
     h('div', { class: 'row2' },
       h('label', { class: 'field' }, h('span', null, 'Budget window'),
         h('select', { name: 'window' }, h('option', { value: 'five_hour', selected: c.window === 'five_hour' }, '5-hour limit'), h('option', { value: 'seven_day', selected: c.window === 'seven_day' }, 'Weekly limit'))),
@@ -658,7 +663,7 @@ function budgetSheet() {
 
 // ---- archive ----------------------------------------------------------------
 
-const SOURCE = { 'claude-code': ['dev', 'dev', 'Claude Code'], 'claude-ai': ['pm', 'chat', 'claude.ai'], note: ['ceo', 'handover', 'Note'] };
+const SOURCE = { 'claude-code': ['terminal', 'Claude Code'], 'claude-ai': ['chat', 'claude.ai'], note: ['handover', 'Note'] };
 
 function archiveView() {
   const q = S.query.trim().toLowerCase();
@@ -678,9 +683,9 @@ function archiveView() {
         ? empty('clock', 'Reading sessions…')
         : sessions.length
           ? h('div', { class: 'card', style: 'padding:0;overflow:hidden' }, sessions.slice(0, 200).map((s) => {
-              const [tone, glyph, label] = SOURCE[s.source];
+              const [glyph, label] = SOURCE[s.source];
               return h('button', { class: 'session', 'data-key': `${s.source}:${s.id}`, 'data-flip': `s:${s.source}:${s.id}`, onclick: () => chatSheet(s) },
-                h('span', { class: `avatar sm ${tone}` }, icon(glyph)),
+                h('span', { class: 'tile sm' }, icon(glyph)),
                 h('div', { style: 'min-width:0' }, h('div', { class: 'session-title' }, s.title), h('div', { class: 'session-where' }, s.where ? `${label} · ${s.where}` : label)),
                 h('time', null, ago(s.updatedAt)));
             }))

@@ -83,7 +83,7 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 .window-bar i { width: 9px; height: 9px; background: var(--surface-3); }
 .window-bar span { margin-left: 0.6rem; }
 .window-bar .live { margin-left: auto; color: var(--green); display: flex; align-items: center; gap: 0.45rem; }
-.window-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.window-body { display: grid; grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr); }
 .org { padding: 1.6rem 1rem; display: flex; flex-direction: column; align-items: center; border-right: 1px solid var(--line); background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 20px, linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 20px 100%; }
 .node { display: grid; justify-items: center; gap: 0.2rem; width: 7.4rem; padding: 0.7rem 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; text-align: center; transition: border-color 250ms, box-shadow 250ms; }
 .node.live { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
@@ -100,6 +100,16 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 .dots i:nth-child(3) { animation-delay: 0.6s; }
 .wire { width: 2px; height: 1.3rem; background: var(--line-strong); }
 .wire.live { background: linear-gradient(var(--green) 50%, transparent 50%) 0 0 / 2px 8px; animation: march 0.5s steps(4) infinite; }
+.pair { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; align-self: stretch; }
+.side { display: flex; align-items: center; justify-self: start; }
+.hwire { width: 1.1rem; height: 2px; background: var(--line-strong); flex: none; }
+.hwire.live { background: linear-gradient(90deg, var(--green) 50%, transparent 50%) 0 0 / 8px 2px; animation: march-x 0.5s steps(4) infinite; }
+@keyframes march-x { to { background-position: 8px 0; } }
+.team { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.35rem; padding-top: 0.7rem; border-top: 2px solid var(--line-strong); align-self: stretch; }
+.tile { position: relative; display: grid; justify-items: center; gap: 0.2rem; padding: 0.4rem 0.1rem 0.35rem; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; transition: border-color 250ms, box-shadow 250ms; min-width: 0; }
+.tile b { font-size: 0.62rem; font-weight: 650; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.tile.live { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.tile.live::after { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; background: var(--green); animation: blink 1s steps(1) infinite; }
 .devs { display: flex; gap: 0.5rem; padding-top: 1.3rem; position: relative; }
 .devs::before { content: ""; position: absolute; top: 0; left: 3.7rem; right: 3.7rem; border-top: 2px solid var(--line-strong); }
 .devs .node { position: relative; }
@@ -123,7 +133,8 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 .decision.stamped::after { opacity: 0.8; }
 .stamp { position: absolute; right: 1rem; top: 50%; margin-top: -1rem; z-index: 1; display: none; padding: 0.2rem 0.6rem; border: 2px solid var(--green); color: var(--green); font: 700 0.82rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase; transform: rotate(-8deg); }
 .stamped .stamp { display: block; animation: stamp 320ms var(--ease) both; }
-.lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.lanes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.4rem; }
+.lane .label { font-size: 0.6rem; letter-spacing: 0.05em; }
 .lane { background: var(--surface-2); border-radius: 6px; padding: 0.5rem; min-height: 6.2rem; display: grid; gap: 0.4rem; align-content: start; }
 .lane > span { display: flex; align-items: center; gap: 0.4rem; }
 .lane > span i { width: 7px; height: 7px; background: var(--c); }
@@ -174,7 +185,7 @@ section > .intro { color: var(--text-2); max-width: 40rem; margin-top: 0.8rem; f
 .rounds p { font-size: 0.88rem; color: var(--text-2); margin-top: 0.15rem; }
 .grid.traits { margin-top: 2.4rem; }
 
-.flow { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 2.2rem; border-top: 1px solid var(--line-strong); }
+.flow { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 2.2rem; border-top: 1px solid var(--line-strong); }
 .flow li { padding: 1.2rem 1.2rem 0 0; display: grid; gap: 0.4rem; align-content: start; }
 .flow li + li { padding-left: 1.2rem; border-left: 1px solid var(--line); }
 .flow .ico { width: 40px; height: 40px; padding: 10px; background: var(--tile); border-radius: 4px; margin: 0.5rem 0 0.3rem; }
@@ -238,6 +249,8 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
   .flow li + li { border-top: 1px solid var(--line); }
   .grid article:nth-child(even) { padding-left: 0; border-left: 0; }
   .node { width: 5.6rem; }
+  .team { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lanes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .devs { gap: 0.3rem; }
   .devs::before { left: 2.8rem; right: 2.8rem; }
   .brakes div { grid-template-columns: 4.6rem 1fr; }
@@ -264,7 +277,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
 <main id="top">
   <div class="wrap hero">
     <h1>Bring a rough idea. The project manager works out the rest.</h1>
-    <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a team of AI developers. You are the CEO: approve, reject, or step out.</p>
+    <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a designer and up to twelve AI developers. You are the CEO: approve, reject, or step out.</p>
     <div class="cta">
       <a class="btn primary" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Get Booardroom on GitHub</a>
       <a class="btn" href="#manager">Meet the manager</a>
@@ -274,23 +287,23 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
 
   <div class="wrap">
     <div class="window" aria-label="Booardroom, a project overview">
-      <div class="window-bar"><i></i><i></i><i></i><span class="label">Invoice app / Overview</span><span class="label live" id="liveLabel"><span class="dots" style="display:inline-flex"><i></i><i></i><i></i></span><span id="liveText">1 agent working</span></span></div>
+      <div class="window-bar"><i></i><i></i><i></i><span class="label">Invoice app / Overview</span><span class="label live" id="liveLabel"><span class="dots" style="display:inline-flex"><i></i><i></i><i></i></span><span id="liveText">6 agents working</span></span></div>
       <div class="window-body">
         <div class="org">
           <div class="node"><span class="face" data-face="ceo"></span><strong>You</strong><span class="state">Chief Executive</span></div>
           <div class="wire" id="wireTop"></div>
-          <div class="node" id="nPm"><span class="face" data-face="pm"></span><strong>Project Manager</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Waiting for you</span></span></div>
-          <div class="wire" id="wireMid"></div>
-          <div class="devs">
-            <div class="node" id="nAda"><span class="face" data-face="dev:Ada"></span><strong>Ada</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div>
-            <div class="node" id="nLinus"><span class="face" data-face="dev:Linus"></span><strong>Linus</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div>
-            <div class="node" id="nGrace"><span class="face" data-face="dev:Grace"></span><strong>Grace</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div>
+          <div class="pair">
+            <span></span>
+            <div class="node live" id="nPm"><span class="face" data-face="pm"></span><strong>Project Manager</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Reviewing</span></span></div>
+            <div class="side"><span class="hwire" id="wireSide"></span><div class="node" id="nDes"><span class="face" data-face="designer"></span><strong>Designer</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div></div>
           </div>
+          <div class="wire live" id="wireMid"></div>
+          <div class="team" id="team"><div class="tile live" data-i="0"><span class="face sm" data-face="dev:Ada"></span><b>Ada</b></div><div class="tile" data-i="1"><span class="face sm" data-face="dev:Linus"></span><b>Linus</b></div><div class="tile live" data-i="2"><span class="face sm" data-face="dev:Grace"></span><b>Grace</b></div><div class="tile live" data-i="3"><span class="face sm" data-face="dev:Dennis"></span><b>Dennis</b></div><div class="tile" data-i="4"><span class="face sm" data-face="dev:Barbara"></span><b>Barbara</b></div><div class="tile live" data-i="5"><span class="face sm" data-face="dev:Ken"></span><b>Ken</b></div><div class="tile" data-i="6"><span class="face sm" data-face="dev:Margaret"></span><b>Margaret</b></div><div class="tile" data-i="7"><span class="face sm" data-face="dev:Alan"></span><b>Alan</b></div><div class="tile" data-i="8"><span class="face sm" data-face="dev:Edsger"></span><b>Edsger</b></div><div class="tile live" data-i="9"><span class="face sm" data-face="dev:Radia"></span><b>Radia</b></div><div class="tile" data-i="10"><span class="face sm" data-face="dev:Donald"></span><b>Donald</b></div><div class="tile" data-i="11"><span class="face sm" data-face="dev:Katherine"></span><b>Katherine</b></div></div>
         </div>
         <div class="desk">
           <span class="label">Waiting for you</span>
           <div class="decision" id="card">
-            <div class="who"><span class="face sm" data-face="pm"></span><b>Project Manager</b> proposes <span class="chip" id="cardEffort">Small</span></div>
+            <div class="who"><span class="face sm" data-face="pm"></span><b>Project Manager</b> proposes <span class="chip" id="cardEffort">Small</span><span class="chip">Designed</span></div>
             <h3 id="cardTitle">Undo for deleted invoices</h3>
             <p id="cardPitch">A deleted invoice is gone for good today. A 10-second undo saves the support ticket.</p>
             <div class="row"><span class="mini go" id="approve">Approve</span><span class="mini no">Reject</span></div>
@@ -299,8 +312,9 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
           <span class="label" style="margin-top:.5rem">Board</span>
           <div class="lanes">
             <div class="lane" id="lQueued"><span class="label"><i style="--c:var(--text-3)"></i>Queued</span></div>
-            <div class="lane" id="lBuilding"><span class="label"><i style="--c:var(--green)"></i>Building</span><div class="ticket working" id="tRunning"><small>BR-12</small>CSV export for reports</div></div>
-            <div class="lane" id="lShipped"><span class="label"><i style="--c:var(--ink)"></i>Shipped</span><div class="ticket"><small>BR-11</small>Onboarding checklist</div></div>
+            <div class="lane" id="lBuilding"><span class="label"><i style="--c:var(--green)"></i>Building</span><div class="ticket working" data-dev="0" data-left="3"><small>BR-21 · Ada</small>CSV export for reports</div><div class="ticket working" data-dev="2" data-left="5"><small>BR-22 · Grace</small>Recurring invoices</div><div class="ticket working" data-dev="3" data-left="2"><small>BR-23 · Dennis</small>PDF themes</div><div class="ticket working" data-dev="5" data-left="4"><small>BR-24 · Ken</small>Tax rates per client</div><div class="ticket working" data-dev="9" data-left="6"><small>BR-25 · Radia</small>Client portal login</div></div>
+            <div class="lane" id="lReview"><span class="label"><i style="--c:var(--text-2)"></i>In review</span><div class="ticket" data-left="2"><small>BR-20 · Linus</small>Dark mode</div></div>
+            <div class="lane" id="lShipped"><span class="label"><i style="--c:var(--ink)"></i>Shipped</span><div class="ticket"><small>BR-19</small>Onboarding checklist</div><div class="ticket"><small>BR-18</small>Invoice numbering</div></div>
           </div>
         </div>
       </div>
@@ -338,10 +352,11 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
     <span class="label">How work flows</span>
     <h2>From idea to shipped, and only one step needs you.</h2>
     <ol class="flow">
-      <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders. Anything a person will see goes to the designer, who adds the design spec.</p></li>
-      <li><span class="label">02</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from your Desk. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
-      <li><span class="label">03</span><span class="ico" data-icon="terminal"></span><h3>Developers build</h3><p>A free developer picks up the task, edits files in the project folder, runs the tests and commits.</p></li>
-      <li><span class="label">04</span><span class="ico" data-icon="check"></span><h3>The manager reviews</h3><p>It checks the diff against the work order. Work that fails review goes back. A dispute that will not settle comes to you.</p></li>
+      <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders with the architecture already decided.</p></li>
+      <li><span class="label">02</span><span class="ico" data-icon="sliders"></span><h3>The designer specs it</h3><p>Anything a person will see gets a design spec first: layout, every state, exact wording, the tokens to use.</p></li>
+      <li><span class="label">03</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from your Desk. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
+      <li><span class="label">04</span><span class="ico" data-icon="terminal"></span><h3>Developers build</h3><p>Free developers pick up tasks in parallel, edit files, run the tests and commit. A blocked command pauses and asks you.</p></li>
+      <li><span class="label">05</span><span class="ico" data-icon="check"></span><h3>The manager reviews</h3><p>It checks the diff against the work order and the design. Approved work is pushed to GitHub.</p></li>
     </ol>
   </section>
 
@@ -373,7 +388,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
       <article><span class="ico" data-icon="megaphone"></span><h3>Talk to the manager</h3><p>Tell it a rule, a wish or a change of mind. It answers, briefs the developers and the designer, and queues the work.</p></article>
       <article><span class="ico" data-icon="archive"></span><h3>Chat archive</h3><p>Past Claude Code sessions on your machine show up on their own. claude.ai chats import from a data export.</p></article>
       <article><span class="ico" data-icon="handover"></span><h3>Handovers</h3><p>Hand an old chat to a project. Claude compresses it into a brief the team reads before each run.</p></article>
-      <article><span class="ico" data-icon="sliders"></span><h3>Permission allowlist</h3><p>Developers edit files, use git locally and run your test command. Any other shell command is denied.</p></article>
+      <article><span class="ico" data-icon="sliders"></span><h3>Your permissions, inherited</h3><p>Developers may run what you already allow Claude Code. Anything else pauses the task and asks you, with one press to allow.</p></article>
       <article><span class="ico" data-icon="board"></span><h3>Stays on your machine</h3><p>The server listens on localhost only. Projects, tasks and logs live in one SQLite file in your user folder.</p></article>
       <article><span class="ico" data-icon="grid"></span><h3>Desktop app</h3><p>One window for macOS, Windows and Linux. The browser version runs from the same code.</p></article>
     </div>
@@ -381,7 +396,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
 
   <section class="wrap" id="team">
     <span class="label">Your first hires</span>
-    <h2>Each project gets a manager, a designer and up to six developers.</h2>
+    <h2>Each project gets a manager, a designer and up to twelve developers.</h2>
     <div class="staff">
       <figure><span class="face lg" data-face="ceo"></span><figcaption>You<span>Chief Executive</span></figcaption></figure>
       <figure><span class="face lg" data-face="pm"></span><figcaption>Project Manager<span>Runs the roadmap</span></figcaption></figure>
@@ -392,6 +407,12 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
       <figure><span class="face lg" data-face="dev:Dennis"></span><figcaption>Dennis<span>Developer</span></figcaption></figure>
       <figure><span class="face lg" data-face="dev:Barbara"></span><figcaption>Barbara<span>Developer</span></figcaption></figure>
       <figure><span class="face lg" data-face="dev:Ken"></span><figcaption>Ken<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Margaret"></span><figcaption>Margaret<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Alan"></span><figcaption>Alan<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Edsger"></span><figcaption>Edsger<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Radia"></span><figcaption>Radia<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Donald"></span><figcaption>Donald<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Katherine"></span><figcaption>Katherine<span>Developer</span></figcaption></figure>
     </div>
   </section>
 
@@ -539,14 +560,26 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
   }
 
   // The hero demo: one proposal travels from the manager's desk to Shipped, then the next one arrives.
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (calm) return;
   const $ = (id) => document.getElementById(id);
   const proposals = [
-    ['Undo for deleted invoices', 'A deleted invoice is gone for good today. A 10-second undo saves the support ticket.', 'Small'],
     ['Keyboard shortcuts for the editor', 'Freelancers enter dozens of line items. N for a new line and Tab between fields cut that time.', 'Medium'],
     ['Late-payment reminders', 'One email on the due date and one a week later. Users ask for this in most feedback notes.', 'Large'],
+    ['Multi-currency totals', 'A third of the clients are billed in euros. Totals should show both currencies.', 'Medium'],
+    ['Duplicate an invoice', 'Monthly retainers are the same invoice each time. One press should copy the last one.', 'Small'],
+    ['Undo for deleted invoices', 'A deleted invoice is gone for good today. A 10-second undo saves the support ticket.', 'Small'],
   ];
-  const state = (node, text, live) => {
+  // Work the manager already got approved in earlier rounds. It keeps the team busy between your decisions.
+  const backlog = ['Search across invoices', 'Export to accounting', 'Client address book', 'Payment links', 'Invoice templates', 'Email delivery status', 'Year-end summary', 'Attach receipts', 'Hourly rate presets', 'Archive old clients'];
+  let backlogAt = 0;
+  const addTicket = (title) => {
+    const ticket = Object.assign(document.createElement('div'), { className: 'ticket', innerHTML: `<small>BR-${nextId++}</small>${title}` });
+    $('lQueued').append(ticket);
+    ticket.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300 });
+  };
+  const tiles = [...document.querySelectorAll('#team .tile')];
+  const nameOf = (i) => tiles[i].querySelector('b').textContent;
+  const label = (node, text, live) => {
     $(node).classList.toggle('live', Boolean(live));
     $(node).querySelector('[data-state]').textContent = text;
   };
@@ -556,61 +589,89 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
     const to = el.getBoundingClientRect();
     el.animate([{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
   };
+  const tickets = (lane) => [...$(lane).querySelectorAll('.ticket')];
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   let round = 0;
-  let id = 13;
+  let nextId = 26;
   let budget = 6;
+  let card = { shown: true, age: 0 };
+  let phase = null; // draft -> design -> the card appears
+  let phaseLeft = 0;
   let visible = true;
   new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(document.querySelector('.window'));
 
-  (async function loop() {
-    for (;;) {
-      await wait(2600);
-      while (!visible || document.hidden) await wait(500);
-      const [title] = proposals[round % proposals.length];
-      // You approve.
+  // One tick of company life: reviews finish, builds finish, free developers pick up work,
+  // and the manager and designer prepare the next proposal.
+  async function tick() {
+    for (const t of tickets('lReview')) {
+      if (--t.dataset.left > 0) continue;
+      move(t, 'lShipped');
+      t.querySelector('small').textContent = t.querySelector('small').textContent.split(' · ')[0];
+      budget = budget >= 9.4 ? 2.2 : budget + 0.3;
+      setBudget(budget);
+    }
+    tickets('lShipped').slice(0, -3).forEach((t) => t.remove());
+    for (const t of tickets('lBuilding')) {
+      if (--t.dataset.left > 0) continue;
+      tiles[t.dataset.dev].classList.remove('live');
+      t.classList.remove('working');
+      t.dataset.left = 2;
+      move(t, 'lReview');
+    }
+    for (const t of tickets('lQueued')) {
+      const free = tiles.findIndex((tile) => !tile.classList.contains('live'));
+      if (free < 0) break;
+      t.dataset.dev = free;
+      t.dataset.left = 4 + Math.floor(Math.random() * 5);
+      t.querySelector('small').textContent += ` · ${nameOf(free)}`;
+      t.classList.add('working');
+      tiles[free].classList.add('live');
+      move(t, 'lBuilding');
+    }
+
+    if (card.shown && ++card.age >= 3) {
       $('approve').classList.add('press');
       await wait(160);
       $('approve').classList.remove('press');
       $('card').classList.add('stamped');
-      await wait(900);
+      await wait(800);
       $('card').classList.add('gone');
-      // The manager hands the task to Ada.
-      const ticket = Object.assign(document.createElement('div'), { className: 'ticket', innerHTML: `<small>BR-${id++}</small>${title}` });
-      $('lQueued').append(ticket);
-      ticket.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300 });
-      state('nPm', 'Idle');
-      await wait(900);
-      move(ticket, 'lBuilding');
-      ticket.classList.add('working');
-      state('nAda', 'Building', true);
-      $('wireMid').classList.add('live');
-      $('liveText').textContent = '2 agents working';
-      await wait(2800);
-      // Review.
-      state('nAda', 'Idle');
-      state('nPm', 'Reviewing', true);
-      $('wireMid').classList.remove('live');
-      $('wireTop').classList.add('live');
-      await wait(1900);
-      const done = $('lShipped').querySelector('.ticket');
-      move(ticket, 'lShipped');
-      ticket.classList.remove('working');
-      if ($('lShipped').querySelectorAll('.ticket').length > 2) done.remove();
-      budget = budget >= 9.4 ? 2.4 : budget + 0.6;
-      setBudget(budget);
-      // The next proposal.
-      state('nPm', 'Drafting', true);
-      await wait(1700);
-      round++;
-      const next = proposals[round % proposals.length];
-      $('cardTitle').textContent = next[0];
-      $('cardPitch').textContent = next[1];
-      $('cardEffort').textContent = next[2];
-      $('card').classList.remove('stamped', 'gone');
-      state('nPm', 'Waiting for you');
-      $('wireTop').classList.remove('live');
-      $('liveText').textContent = '1 agent working';
+      addTicket($('cardTitle').textContent);
+      card = { shown: false, age: 0 };
+      phase = 'draft';
+      phaseLeft = 2;
+    } else if (!card.shown && --phaseLeft <= 0) {
+      if (phase === 'draft') {
+        phase = 'design';
+        phaseLeft = 2;
+      } else {
+        const next = proposals[round++ % proposals.length];
+        $('cardTitle').textContent = next[0];
+        $('cardPitch').textContent = next[1];
+        $('cardEffort').textContent = next[2];
+        $('card').classList.remove('stamped', 'gone');
+        card = { shown: true, age: 0 };
+        phase = null;
+      }
+    }
+
+    if (tickets('lBuilding').length + tickets('lQueued').length < 7) addTicket(backlog[backlogAt++ % backlog.length]);
+
+    const reviewing = tickets('lReview').length > 0;
+    label('nPm', reviewing ? 'Reviewing' : phase === 'draft' ? 'Drafting' : card.shown ? 'Waiting for you' : 'Idle', reviewing || phase === 'draft');
+    label('nDes', phase === 'design' ? 'Designing' : 'Idle', phase === 'design');
+    $('wireSide').classList.toggle('live', phase === 'design');
+    $('wireTop').classList.toggle('live', reviewing || phase === 'draft');
+    const working = tiles.filter((t) => t.classList.contains('live')).length;
+    $('wireMid').classList.toggle('live', working > 0);
+    const total = working + (reviewing || phase === 'draft' ? 1 : 0) + (phase === 'design' ? 1 : 0);
+    $('liveText').textContent = total ? `${total} ${total === 1 ? 'agent' : 'agents'} working` : 'All quiet';
+  }
+
+  (async function loop() {
+    for (;;) {
+      await wait(1300);
+      if (visible && !document.hidden) await tick();
     }
   })();
 })();

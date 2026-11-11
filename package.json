@@ -1,0 +1,15 @@
+{
+  "name": "agent-corp",
+  "version": "0.1.0",
+  "description": "A company of headless Claude agents. You are the CEO.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/server.js",
+    "demo": "CORP_RUNNER=mock CORP_DATA_DIR=./data-demo node --disable-warning=ExperimentalWarning src/server.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js"
+  }
+}

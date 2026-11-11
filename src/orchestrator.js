@@ -1,0 +1,401 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { IDEAS_SCHEMA, REVIEW_SCHEMA, ideatePrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
+
+export const DEFAULT_DEV_TOOLS =
+  'Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git add *),Bash(git commit *),Bash(npm test *),Bash(npm run *)';
+const PM_READ_TOOLS = 'Read,Glob,Grep';
+const PM_REVIEW_ALLOWED = 'Read,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *)';
+const OPEN = ['queued', 'in_progress', 'review', 'changes', 'escalated'];
+const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken'];
+const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
+
+export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () => Date.now() }) {
+  /** agentId -> { kind, taskId, since, abort } */
+  const busy = new Map();
+  /** projectId -> timestamp; set after a failed PM run so a broken setup does not burn the budget */
+  const cooldown = new Map();
+  let ticking = false;
+
+  const emit = (projectId, type, text, extra = {}) => {
+    const row = { project_id: projectId, type, text: clip(text), ts: now(), task_id: extra.taskId ?? null, agent_id: extra.agentId ?? null };
+    row.id = db.insert('events', row);
+    bus.emit('change', { projectId });
+  };
+
+  // ---- projects ---------------------------------------------------------
+
+  function createProject(input) {
+    const name = String(input.name || '').trim();
+    if (!name) throw new Error('A project needs a name.');
+    let workdir = String(input.workdir || '').trim();
+    if (workdir) {
+      workdir = path.resolve(workdir.replace(/^~(?=$|\/)/, process.env.HOME || '~'));
+      if (!fs.existsSync(workdir) || !fs.statSync(workdir).isDirectory()) throw new Error(`Folder not found: ${workdir}`);
+    } else {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'project';
+      workdir = path.resolve(dataDir, 'workspaces', `${slug}-${now().toString(36)}`);
+      fs.mkdirSync(workdir, { recursive: true });
+      try {
+        execFileSync('git', ['init', '-q'], { cwd: workdir });
+      } catch {}
+    }
+    const id = db.insert('projects', { name, brief: String(input.brief || ''), workdir, created_at: now() });
+    db.insert('agents', { project_id: id, role: 'pm', name: 'Project Manager' });
+    updateProject(id, { devs: 2, ...input });
+    emit(id, 'ceo', `The CEO founded the project “${name}”.`);
+    return id;
+  }
+
+  function updateProject(id, patch) {
+    const p = db.get('SELECT * FROM projects WHERE id = ?', id);
+    if (!p) throw new Error('Project not found.');
+    const next = {};
+    if (typeof patch.name === 'string' && patch.name.trim()) next.name = patch.name.trim();
+    if (typeof patch.brief === 'string') next.brief = patch.brief;
+    if (['ceo', 'auto'].includes(patch.approval)) next.approval = patch.approval;
+    if (['acceptEdits', 'bypassPermissions'].includes(patch.permission_mode)) next.permission_mode = patch.permission_mode;
+    if (typeof patch.allowed_tools === 'string') next.allowed_tools = patch.allowed_tools.trim();
+    if (typeof patch.model === 'string') next.model = patch.model.trim();
+    const int = (key, lo, hi) => {
+      if (patch[key] !== undefined && patch[key] !== '') next[key] = Math.min(hi, Math.max(lo, Math.round(Number(patch[key])) || lo));
+    };
+    int('ideas_per_round', 1, 8);
+    int('max_iterations', 1, 6);
+    int('max_turns', 5, 200);
+    int('daily_task_cap', 0, 500);
+    db.update('projects', id, next);
+
+    if (patch.devs !== undefined) {
+      const want = Math.min(DEV_NAMES.length, Math.max(1, Math.round(Number(patch.devs)) || 1));
+      const devs = db.all("SELECT * FROM agents WHERE project_id = ? AND role = 'dev' ORDER BY id", id);
+      for (let i = devs.length; i < want; i++) db.insert('agents', { project_id: id, role: 'dev', name: DEV_NAMES[i] });
+      for (const extra of devs.slice(want).reverse()) {
+        if (busy.has(extra.id)) break;
+        db.run("UPDATE tasks SET assignee = NULL WHERE assignee = ?", extra.id);
+        db.run('DELETE FROM agents WHERE id = ?', extra.id);
+      }
+    }
+    if (next.approval === 'auto') {
+      for (const idea of db.all("SELECT id FROM ideas WHERE project_id = ? AND status = 'proposed'", id)) decideIdea(idea.id, true, 'auto');
+    }
+    bus.emit('change', { projectId: id });
+  }
+
+  function setStatus(id, status) {
+    db.update('projects', id, { status });
+    cooldown.delete(id);
+    emit(id, 'ceo', status === 'active' ? 'The CEO started the project.' : 'The CEO paused the project. Running work finishes first.');
+    tick();
+  }
+
+  function deleteProject(id) {
+    for (const [agentId, job] of busy) if (job.projectId === id) job.abort.abort();
+    db.run('DELETE FROM projects WHERE id = ?', id);
+    bus.emit('change', {});
+  }
+
+  // ---- ideas and tasks --------------------------------------------------
+
+  function decideIdea(ideaId, approve, by = 'ceo', reason = '') {
+    const idea = db.get('SELECT * FROM ideas WHERE id = ?', ideaId);
+    if (!idea || idea.status !== 'proposed') throw new Error('This idea is already decided.');
+    db.update('ideas', ideaId, { status: approve ? 'approved' : 'rejected', decided_by: by, decided_at: now(), reason: reason || null });
+    if (approve) {
+      const taskId = db.insert('tasks', {
+        project_id: idea.project_id,
+        idea_id: idea.id,
+        title: idea.title,
+        spec: `${idea.pitch}\n\n${idea.plan}`.trim(),
+        created_at: now(),
+        updated_at: now(),
+      });
+      emit(idea.project_id, 'approve', by === 'ceo' ? `The CEO approved “${idea.title}”.` : `Auto-approved “${idea.title}”.`, { taskId });
+    } else {
+      emit(idea.project_id, 'reject', `The CEO rejected “${idea.title}”${reason ? `: ${reason}` : '.'}`);
+    }
+    tick();
+  }
+
+  /** The CEO hands the team a directive. It skips approval. */
+  function addDirective(projectId, { title, plan }) {
+    if (!String(title || '').trim()) throw new Error('A directive needs a title.');
+    const id = db.insert('ideas', { project_id: projectId, title: title.trim(), plan: String(plan || ''), author: 'ceo', created_at: now() });
+    decideIdea(id, true, 'ceo');
+  }
+
+  function setTask(task, patch) {
+    db.update('tasks', task.id, { ...patch, updated_at: now() });
+    bus.emit('change', { projectId: task.project_id });
+  }
+
+  /** CEO rulings on escalated or failed tasks. */
+  function ruleTask(taskId, action) {
+    const task = db.get('SELECT * FROM tasks WHERE id = ?', taskId);
+    if (!task) throw new Error('Task not found.');
+    if (action === 'accept' && task.status === 'escalated') {
+      setTask(task, { status: 'done' });
+      emit(task.project_id, 'ceo', `The CEO accepted “${task.title}” as it stands.`, { taskId });
+    } else if (action === 'retry' && ['escalated', 'failed'].includes(task.status)) {
+      setTask(task, { status: task.report ? 'changes' : 'queued', iteration: 0, failures: 0 });
+      emit(task.project_id, 'ceo', `The CEO sent “${task.title}” back to the developers.`, { taskId });
+    } else if (action === 'cancel' && !['done', 'cancelled'].includes(task.status)) {
+      if (task.assignee && busy.get(task.assignee)?.taskId === task.id) busy.get(task.assignee).abort.abort();
+      setTask(task, { status: 'cancelled' });
+      emit(task.project_id, 'ceo', `The CEO cancelled “${task.title}”.`, { taskId });
+    } else {
+      throw new Error(`Cannot ${action} a task that is ${task.status}.`);
+    }
+    tick();
+  }
+
+  // ---- runs -------------------------------------------------------------
+
+  const handoversOf = (projectId) => db.all('SELECT * FROM handovers WHERE project_id = ? ORDER BY id DESC', projectId);
+
+  /** Starts one run for an agent and wires bookkeeping around it. */
+  function start({ project, agent, task, kind, options, onDone }) {
+    const abort = new AbortController();
+    const runId = db.insert('runs', { project_id: project.id, agent_id: agent?.id ?? null, task_id: task?.id ?? null, kind, started_at: now() });
+    const key = agent?.id ?? `run-${runId}`;
+    busy.set(key, { kind, taskId: task?.id ?? null, projectId: project.id, since: now(), abort });
+    bus.emit('change', { projectId: project.id });
+
+    const ctx = { taskId: task?.id, agentId: agent?.id };
+    const promise = runner({
+      ...options,
+      kind,
+      cwd: project.workdir,
+      model: project.model || undefined,
+      signal: abort.signal,
+      onEvent(e) {
+        if (e.type === 'limits') budget.record(e.info);
+        else emit(project.id, e.type, e.text, ctx);
+      },
+    })
+      .catch((err) => ({ ok: false, error: err.message, costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 0 }))
+      .then((res) => {
+        busy.delete(key);
+        db.update('runs', runId, {
+          status: res.ok ? 'ok' : 'error',
+          cost_usd: res.costUsd || 0,
+          input_tokens: res.inputTokens || 0,
+          output_tokens: res.outputTokens || 0,
+          turns: res.turns || 0,
+          session_id: res.sessionId ?? null,
+          error: res.ok ? null : clip(res.error, 1000),
+          ended_at: now(),
+        });
+        // The project may have been deleted while the run was in flight.
+        if (db.get('SELECT id FROM projects WHERE id = ?', project.id)) {
+          if (!res.ok) emit(project.id, 'error', `${agent?.name ?? 'Run'} failed: ${res.error}`, ctx);
+          onDone(res);
+        }
+        bus.emit('change', { projectId: project.id });
+        tick();
+        return res;
+      });
+    return promise;
+  }
+
+  function ideate(project, pm) {
+    const count = project.ideas_per_round;
+    emit(project.id, 'ideate', 'The project manager is reading the repository and drafting proposals.', { agentId: pm.id });
+    start({
+      project,
+      agent: pm,
+      kind: 'ideate',
+      options: {
+        prompt: ideatePrompt({
+          project,
+          handovers: handoversOf(project.id),
+          count,
+          done: db.all("SELECT title FROM tasks WHERE project_id = ? AND status = 'done' ORDER BY id DESC LIMIT 40", project.id),
+          open: db.all(`SELECT title FROM tasks WHERE project_id = ? AND status IN (${OPEN.map(() => '?').join(',')})`, project.id, ...OPEN),
+          rejected: db.all("SELECT title, reason FROM ideas WHERE project_id = ? AND status = 'rejected' ORDER BY id DESC LIMIT 30", project.id),
+        }),
+        tools: PM_READ_TOOLS,
+        allowedTools: PM_READ_TOOLS,
+        schema: IDEAS_SCHEMA(count),
+        maxTurns: 40,
+      },
+      onDone(res) {
+        const ideas = res.ok ? (res.structured?.ideas ?? parseJson(res.result)?.ideas) : null;
+        if (!Array.isArray(ideas) || !ideas.length) {
+          if (res.ok) emit(project.id, 'error', 'The project manager returned no usable proposals.', { agentId: pm.id });
+          cooldown.set(project.id, now() + 5 * 60_000);
+          return;
+        }
+        const fresh = db.get('SELECT approval FROM projects WHERE id = ?', project.id);
+        for (const idea of ideas.slice(0, count)) {
+          const id = db.insert('ideas', {
+            project_id: project.id,
+            title: clip(String(idea.title), 140),
+            pitch: String(idea.pitch ?? ''),
+            plan: String(idea.plan ?? ''),
+            effort: ['S', 'M', 'L'].includes(idea.effort) ? idea.effort : 'M',
+            created_at: now(),
+          });
+          emit(project.id, 'idea', `Proposal: ${idea.title}`, { agentId: pm.id });
+          if (fresh.approval === 'auto') decideIdea(id, true, 'auto');
+        }
+      },
+    });
+  }
+
+  function build(project, dev, task, peers) {
+    const revision = task.status === 'changes';
+    const resume = revision && task.session_id && task.assignee === dev.id ? task.session_id : undefined;
+    const prompt = resume ? revisePrompt({ task }) : buildPrompt({ project, handovers: handoversOf(project.id), task, peers }) + (revision ? `\n\n## Review notes from the previous round\n${task.review_notes}` : '');
+    setTask(task, { status: 'in_progress', assignee: dev.id });
+    emit(project.id, 'assign', revision ? `PM → ${dev.name}: revise “${task.title}”.\n${task.review_notes}` : `PM → ${dev.name}: build “${task.title}”.`, { taskId: task.id, agentId: dev.id });
+    start({
+      project,
+      agent: dev,
+      task,
+      kind: 'build',
+      options: {
+        prompt,
+        resume,
+        permissionMode: project.permission_mode,
+        allowedTools: project.allowed_tools || DEFAULT_DEV_TOOLS,
+        maxTurns: project.max_turns,
+      },
+      onDone(res) {
+        const current = db.get('SELECT * FROM tasks WHERE id = ?', task.id);
+        if (!current || current.status !== 'in_progress') return; // cancelled meanwhile
+        if (res.ok) {
+          setTask(current, { status: 'review', report: res.result || '(no report)', session_id: res.sessionId ?? current.session_id, failures: 0 });
+          emit(project.id, 'report', `${dev.name} → PM: ${res.result || '(no report)'}`, { taskId: task.id, agentId: dev.id });
+        } else {
+          const failures = current.failures + 1;
+          // A failed resume often means the session is gone: drop it so the retry starts clean.
+          setTask(current, { status: failures >= 2 ? 'failed' : revision ? 'changes' : 'queued', failures, session_id: resume ? null : current.session_id });
+          if (failures >= 2) emit(project.id, 'error', `“${task.title}” failed twice and waits for the CEO.`, { taskId: task.id });
+        }
+      },
+    });
+  }
+
+  function review(project, pm, task) {
+    start({
+      project,
+      agent: pm,
+      task,
+      kind: 'review',
+      options: {
+        prompt: reviewPrompt({ project, handovers: handoversOf(project.id), task }),
+        tools: 'Read,Glob,Grep,Bash',
+        allowedTools: PM_REVIEW_ALLOWED,
+        schema: REVIEW_SCHEMA,
+        maxTurns: 40,
+      },
+      onDone(res) {
+        const current = db.get('SELECT * FROM tasks WHERE id = ?', task.id);
+        if (!current || current.status !== 'review') return;
+        const verdict = res.ok ? (res.structured ?? parseJson(res.result)) : null;
+        if (!verdict?.verdict) {
+          cooldown.set(project.id, now() + 5 * 60_000);
+          return;
+        }
+        const notes = String(verdict.notes ?? '');
+        if (verdict.verdict === 'approve') {
+          setTask(current, { status: 'done', review_notes: notes });
+          emit(project.id, 'review', `PM approved “${task.title}”. ${notes}`, { taskId: task.id, agentId: pm.id });
+        } else if (current.iteration + 1 >= project.max_iterations) {
+          setTask(current, { status: 'escalated', review_notes: notes, iteration: current.iteration + 1 });
+          emit(project.id, 'review', `PM escalated “${task.title}” to the CEO after ${current.iteration + 1} review rounds. ${notes}`, { taskId: task.id, agentId: pm.id });
+        } else {
+          setTask(current, { status: 'changes', review_notes: notes, iteration: current.iteration + 1 });
+          emit(project.id, 'review', `PM sent “${task.title}” back. ${notes}`, { taskId: task.id, agentId: pm.id });
+        }
+      },
+    });
+  }
+
+  /** Summarises a transcript into a handover brief. Counts against the budget like any run. */
+  function summarize(project, title, transcript) {
+    const gate = budget.gate();
+    if (!gate.ok) return Promise.resolve({ ok: false, error: gate.reason });
+    return start({
+      project,
+      kind: 'summarize',
+      options: { prompt: summarizePrompt({ title, transcript }), tools: '', maxTurns: 3 },
+      onDone() {},
+    });
+  }
+
+  // ---- scheduling -------------------------------------------------------
+
+  function shouldIdeate(project, devCount) {
+    if ((cooldown.get(project.id) ?? 0) > now()) return false;
+    if (db.get("SELECT COUNT(*) AS n FROM ideas WHERE project_id = ? AND status = 'proposed'", project.id).n > 0) return false;
+    const waiting = db.get("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('queued', 'changes')", project.id).n;
+    const active = db.get("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('in_progress', 'review')", project.id).n;
+    if (waiting > 0 || active >= devCount) return false;
+    if (project.daily_task_cap > 0) {
+      const midnight = new Date(now());
+      midnight.setHours(0, 0, 0, 0);
+      const today = db.get('SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND created_at >= ?', project.id, midnight.getTime()).n;
+      if (today >= project.daily_task_cap) return false;
+    }
+    return true;
+  }
+
+  function tick() {
+    if (ticking) return;
+    ticking = true;
+    try {
+      const gate = budget.gate();
+      if (!gate.ok) return;
+      const slots = () => budget.config().maxParallel - busy.size;
+      for (const project of db.all("SELECT * FROM projects WHERE status = 'active' ORDER BY id")) {
+        if (slots() <= 0) break;
+        const agents = db.all('SELECT * FROM agents WHERE project_id = ? ORDER BY id', project.id);
+        const pm = agents.find((a) => a.role === 'pm');
+        const devs = agents.filter((a) => a.role === 'dev');
+
+        if ((cooldown.get(project.id) ?? 0) <= now() && !busy.has(pm.id)) {
+          const inReview = db.get("SELECT * FROM tasks WHERE project_id = ? AND status = 'review' ORDER BY updated_at LIMIT 1", project.id);
+          if (inReview) review(project, pm, inReview);
+          else if (shouldIdeate(project, devs.length)) ideate(project, pm);
+        }
+        for (const dev of devs) {
+          if (slots() <= 0) break;
+          if (busy.has(dev.id)) continue;
+          // A revision goes back to the developer who wrote the code. A new task goes to anyone free.
+          const task =
+            db.get("SELECT * FROM tasks WHERE project_id = ? AND status = 'changes' AND (assignee = ? OR assignee IS NULL) ORDER BY id LIMIT 1", project.id, dev.id) ??
+            db.get("SELECT * FROM tasks WHERE project_id = ? AND status = 'queued' ORDER BY id LIMIT 1", project.id);
+          if (task) build(project, dev, task, devs.length > 1);
+        }
+      }
+    } finally {
+      ticking = false;
+    }
+  }
+
+  /** Work that was mid-flight when the server stopped goes back in the queue. */
+  function recover() {
+    db.run("UPDATE runs SET status = 'interrupted', ended_at = ? WHERE status = 'running'", now());
+    db.run("UPDATE tasks SET status = CASE WHEN report IS NULL THEN 'queued' ELSE 'changes' END WHERE status = 'in_progress'");
+  }
+
+  return {
+    createProject, updateProject, setStatus, deleteProject,
+    decideIdea, addDirective, ruleTask, summarize,
+    tick, recover,
+    busy: () => busy,
+  };
+}
+
+function parseJson(text) {
+  if (!text) return null;
+  const match = text.match(/\{[\s\S]*\}/);
+  try {
+    return match ? JSON.parse(match[0]) : null;
+  } catch {
+    return null;
+  }
+}

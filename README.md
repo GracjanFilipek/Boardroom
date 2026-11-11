@@ -4,6 +4,10 @@ A company of headless Claude agents. You are the CEO.
 
 Each project gets a project manager and a team of developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
 
+![The Boardroom: decisions waiting for the CEO, live agent activity, projects](docs/boardroom.png)
+
+![A project: org chart with live agent status](docs/project.png)
+
 Every agent is a `claude -p` call, so the work runs on the Claude Code login of your machine. With a Pro or Max subscription you pay nothing extra.
 
 ## Run it
@@ -28,6 +32,14 @@ No dependencies to install. Data lives in `./data` (SQLite).
 6. **Escalate.** After the configured number of review rounds the task lands on your desk. Accept it, send it back, or cancel it.
 
 You can also send a **directive**: a task you wrote yourself. It skips approval.
+
+## Finding your way around
+
+- **Boardroom.** Your desk: decisions waiting, a live feed of what agents say to each other, every project at a glance.
+- **Project.** Four tabs. Overview holds the org chart with live status and your pending decisions. Board is the pipeline, and tickets travel between lanes as work moves. Activity is the full conversation, with tool calls on request. Handovers lists the chats you gave the team.
+- **Jump to.** Press Cmd+K or Ctrl+K to open a project, start or pause one, or open the budget.
+
+Motion respects the reduced-motion, reduced-transparency and high-contrast settings of your system.
 
 ## Keeping agents inside a budget
 
@@ -90,7 +102,9 @@ src/claude.js        headless runner and its demo stand-in
 src/budget.js        subscription readings and the gate
 src/history.js       Claude Code sessions, claude.ai exports, notes
 src/prompts.js       what each role is told
-public/              the interface, no build step
+public/app.js        views
+public/dom.js        element builder, keyed morph, layout animations
+public/motion.js     springs and the draggable sheet
 ```
 
 Built against Claude Code 2.1.

@@ -28,8 +28,11 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     });
 
   function state() {
+    const midnight = new Date();
+    midnight.setHours(0, 0, 0, 0);
     const projects = db.all('SELECT * FROM projects ORDER BY id').map((p) => {
       const count = (sql, ...args) => db.get(sql, p.id, ...args).n;
+      const agents = agentsOf(p.id).map((a) => ({ id: a.id, role: a.role, name: a.name, job: a.job }));
       return {
         id: p.id,
         name: p.name,
@@ -39,19 +42,30 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
         open: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('queued','in_progress','review','changes')"),
         done: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status = 'done'"),
         attention: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('escalated','failed')"),
-        working: agentsOf(p.id).filter((a) => a.job).length,
-        headcount: agentsOf(p.id).length,
+        working: agents.filter((a) => a.job).length,
+        headcount: agents.length,
+        agents,
       };
     });
     const inbox = [
-      ...db.all("SELECT i.*, p.name AS project_name FROM ideas i JOIN projects p ON p.id = i.project_id WHERE i.status = 'proposed' ORDER BY i.id").map((i) => ({ kind: 'idea', ...i })),
       ...db.all("SELECT t.*, p.name AS project_name FROM tasks t JOIN projects p ON p.id = t.project_id WHERE t.status IN ('escalated','failed') ORDER BY t.id").map((t) => ({ kind: 'task', ...t })),
+      ...db.all("SELECT i.*, p.name AS project_name FROM ideas i JOIN projects p ON p.id = i.project_id WHERE i.status = 'proposed' ORDER BY i.id").map((i) => ({ kind: 'idea', ...i })),
     ];
     return {
       runner: mock ? 'mock' : 'claude',
       budget: { config: budget.config(), windows: budget.windows(), gate: budget.gate(), today: budget.spentToday() },
+      stats: {
+        working: projects.reduce((n, p) => n + p.working, 0),
+        headcount: projects.reduce((n, p) => n + p.headcount, 0),
+        shippedToday: db.get("SELECT COUNT(*) AS n FROM tasks WHERE status = 'done' AND updated_at >= ?", midnight.getTime()).n,
+      },
       projects,
       inbox,
+      feed: db.all(
+        `SELECT e.id, e.type, e.text, e.ts, e.project_id, p.name AS project_name, a.role, a.name AS agent_name
+         FROM events e JOIN projects p ON p.id = e.project_id LEFT JOIN agents a ON a.id = e.agent_id
+         WHERE e.type NOT IN ('tool', 'say', 'idea') ORDER BY e.id DESC LIMIT 12`,
+      ),
     };
   }
 
@@ -62,8 +76,8 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
       project: { ...project, default_tools: DEFAULT_DEV_TOOLS },
       agents: agentsOf(id),
       ideas: db.all("SELECT * FROM ideas WHERE project_id = ? AND (status = 'proposed' OR author = 'pm') ORDER BY status = 'proposed' DESC, id DESC LIMIT 40", id),
-      tasks: db.all("SELECT * FROM tasks WHERE project_id = ? AND status != 'cancelled' ORDER BY id DESC LIMIT 120", id),
-      events: db.all('SELECT * FROM events WHERE project_id = ? ORDER BY id DESC LIMIT 150', id),
+      tasks: db.all("SELECT t.*, i.effort FROM tasks t LEFT JOIN ideas i ON i.id = t.idea_id WHERE t.project_id = ? AND t.status != 'cancelled' ORDER BY t.id DESC LIMIT 120", id),
+      events: db.all('SELECT * FROM events WHERE project_id = ? ORDER BY id DESC LIMIT 200', id),
       handovers: db.all('SELECT * FROM handovers WHERE project_id = ? ORDER BY id DESC', id),
       spend: db.get('SELECT COALESCE(SUM(cost_usd), 0) AS usd, COUNT(*) AS runs FROM runs WHERE project_id = ?', id),
     };

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="light dark">
   <title>Agent Corp</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%230071e3'/%3E%3Cpath d='M6 16h12M6 16l-1-7 4 3 3-5 3 5 4-3-1 7' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%235b5bd6'/%3E%3Cpath d='M6 16h12M6 16l-1-7 4 3 3-5 3 5 4-3-1 7' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
@@ -30,13 +30,20 @@
       <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 3 19.5h18zM12 10v4.5M12 17v.5"/></symbol>
       <symbol id="i-chat" viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-7l-4.5 4v-4H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></symbol>
       <symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M4 10v4h3l8 4.5v-13L7 10zM18 9.5a3.5 3.5 0 0 1 0 5M8 14.5l1.5 5"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+      <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><path d="M12 3.5a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17zM12 7.5V12l3 2"/></symbol>
+      <symbol id="i-box" viewBox="0 0 24 24"><path d="m4 8 8-4 8 4v8l-8 4-8-4zM4 8l8 4 8-4M12 12v8"/></symbol>
+      <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l8-10.5h-6z"/></symbol>
     </defs>
   </svg>
 
   <div id="app">
     <nav id="sidebar" aria-label="Company"></nav>
-    <main id="main"><div id="view"></div></main>
+    <main id="main"><header id="topbar"></header><div id="view"></div></main>
   </div>
+  <nav id="tabbar" aria-label="Sections"></nav>
   <div id="sheets"></div>
   <div id="toasts" role="status" aria-live="polite"></div>
   <script type="module" src="app.js"></script>

@@ -149,7 +149,7 @@ export function createMockRunner({ delay = 900 } = {}) {
     }
 
     await wait(delay / 2);
-    utilization = Math.min(1, utilization + 0.01);
+    utilization = Math.min(1, utilization + 0.002);
     o.onEvent?.({
       type: 'limits',
       info: {

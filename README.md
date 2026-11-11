@@ -45,6 +45,16 @@ The app runs the same server inside itself on a private local port, so nothing e
 6. **Review.** The project manager checks the diff against the work order. It approves, or sends the task back with exact instructions. The same developer resumes its session with `--resume`.
 7. **Escalate.** After the configured number of review rounds the task lands on your desk. Accept it, send it back, or cancel it.
 
+### Talking to the manager
+
+Open the **Manager** tab of a project and write to the project manager as you would to a person. It answers, and it acts on what you said:
+
+- A rule or preference ("no frameworks", "everything must work on a phone") goes into a short memo of **standing guidance**. Developers and the designer read that memo before every run.
+- A request for specific work becomes tasks with full work orders. They start without further approval, because you asked.
+- A change of direction makes the manager withdraw its pending proposals and plan again.
+
+The manager also says so when it disagrees, then does what you decided. It answers while a project is paused; the team acts once the project runs.
+
 You can also send a **directive**: a task you wrote yourself. It skips approval.
 
 ## The agents and their master prompts

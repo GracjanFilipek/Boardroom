@@ -357,6 +357,22 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
 .tl-item.compact { padding: 0.6rem 0; grid-template-columns: 20px 1fr; gap: 0.6rem; }
 .tl-item.compact .tl-text { font-size: 0.83rem; color: var(--text-2); -webkit-line-clamp: 2; }
 
+/* ---- talking to the manager ---- */
+.talk { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 2rem; margin-top: 1.4rem; align-items: start; }
+.talk-main { display: grid; gap: 1rem; min-width: 0; }
+.chat { display: flex; flex-direction: column; gap: 1rem; }
+.say { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 0.75rem; max-width: 46rem; }
+.say-head { display: flex; align-items: baseline; gap: 0.5rem; }
+.say-head strong { font-size: 0.85rem; font-weight: 650; }
+.say-head time { font: 500 0.68rem var(--mono); color: var(--text-3); text-transform: uppercase; }
+.say-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 0.93rem; margin-top: 0.15rem; }
+.say.ceo .say-text { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 8px; padding: 0.55rem 0.75rem; width: fit-content; max-width: 100%; }
+.say-effects { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+.composer { position: sticky; bottom: 1rem; display: flex; gap: 0.5rem; align-items: flex-end; padding: 0.5rem; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 10px; }
+.composer:focus-within { border-color: var(--ink); }
+.composer textarea { flex: 1; min-width: 0; border: 0; outline: 0; background: none; resize: none; padding: 0.4rem 0.5rem; line-height: 1.4; max-height: 12rem; field-sizing: content; }
+.talk-side { position: sticky; top: 4.2rem; }
+
 /* ---- budget ---- */
 .gauge { display: grid; gap: 0.4rem; }
 .gauge-head { display: flex; justify-content: space-between; font-size: 0.83rem; font-weight: 600; }
@@ -447,7 +463,8 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
 
 /* ---- small screens ---- */
 @media (max-width: 1000px) {
-  .split { grid-template-columns: 1fr; }
+  .split, .talk { grid-template-columns: 1fr; }
+  .talk-side { position: static; order: -1; }
   .stats-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stat:nth-child(3) { border-left: 0; }
   .stat:nth-child(n + 3) { border-top: 1px solid var(--line); }
@@ -467,6 +484,7 @@ kbd { font: 600 0.66rem/1 var(--mono); padding: 0.2rem 0.35rem; border-radius: 3
   #tabbar [aria-current="page"] { color: var(--text); }
   #tabbar .badge { position: absolute; top: 0.15rem; left: 50%; margin-left: 0.4rem; }
   #toasts { bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  .composer { bottom: calc(4.6rem + env(safe-area-inset-bottom)); }
   .row2 { grid-template-columns: 1fr; }
   .steps { grid-template-columns: 1fr; }
   .step + .step { padding-left: 0; border-left: 0; }

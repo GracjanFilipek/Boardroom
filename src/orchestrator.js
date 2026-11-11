@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { IDEAS_SCHEMA, REVIEW_SCHEMA, ideatePrompt, designPrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
+import { IDEAS_SCHEMA, REVIEW_SCHEMA, CHAT_SCHEMA, chatPrompt, ideatePrompt, designPrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
 import { createRoles } from './roles.js';
 
 export const DEFAULT_DEV_TOOLS =
@@ -122,6 +122,87 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
     tick();
   }
 
+  const conversationOf = (projectId, limit = 16) =>
+    db.all('SELECT role, text FROM messages WHERE project_id = ? ORDER BY id DESC LIMIT ?', projectId, limit).reverse();
+
+  /** The CEO says something to the project manager. The manager answers on its next free moment. */
+  function tell(projectId, text) {
+    const body = String(text || '').trim();
+    if (!body) throw new Error('Write a message first.');
+    if (!db.get('SELECT id FROM projects WHERE id = ?', projectId)) throw new Error('Project not found.');
+    const id = db.insert('messages', { project_id: projectId, role: 'ceo', text: body.slice(0, 8000), ts: now() });
+    emit(projectId, 'ceo', `The CEO told the project manager: ${body}`);
+    cooldown.delete(projectId);
+    tick();
+    return id;
+  }
+
+  /** The manager answers the CEO and turns the conversation into guidance and work for the team. */
+  function chat(project, pm) {
+    const upTo = db.get('SELECT MAX(id) AS id FROM messages WHERE project_id = ?', project.id).id;
+    const designer = db.get("SELECT id FROM agents WHERE project_id = ? AND role = 'designer'", project.id);
+    start({
+      project,
+      agent: pm,
+      kind: 'chat',
+      options: {
+        prompt: chatPrompt({
+          project,
+          handovers: handoversOf(project.id),
+          conversation: conversationOf(project.id),
+          pending: db.all("SELECT title FROM ideas WHERE project_id = ? AND status IN ('proposed', 'design')", project.id),
+          open: db.all("SELECT title, status FROM tasks WHERE project_id = ? AND status IN ('queued', 'in_progress', 'review', 'changes', 'escalated')", project.id),
+          done: db.all("SELECT title FROM tasks WHERE project_id = ? AND status = 'done' ORDER BY id DESC LIMIT 15", project.id),
+        }),
+        tools: PM_READ_TOOLS,
+        allowedTools: PM_READ_TOOLS,
+        schema: CHAT_SCHEMA,
+        maxTurns: 40,
+      },
+      onDone(res) {
+        const out = res.ok ? (res.structured ?? parseJson(res.result)) : null;
+        if (!out?.reply) {
+          // Leave the messages unanswered so the manager tries again after the pause.
+          cooldown.set(project.id, now() + 2 * 60_000);
+          return;
+        }
+        // Mark the messages answered first: creating tasks below re-enters the scheduler.
+        db.run('UPDATE messages SET answered = 1 WHERE project_id = ? AND role = ? AND id <= ?', project.id, 'ceo', upTo);
+        const effects = {};
+        if (typeof out.memo === 'string' && out.memo.trim() && out.memo.trim() !== project.memo) {
+          db.update('projects', project.id, { memo: out.memo.trim().slice(0, 4000) });
+          effects.memo = true;
+        }
+        if (out.withdraw_proposals) {
+          const pending = db.all("SELECT id FROM ideas WHERE project_id = ? AND author = 'pm' AND status IN ('proposed', 'design')", project.id);
+          for (const idea of pending) {
+            db.update('ideas', idea.id, { status: 'rejected', decided_by: 'pm', decided_at: now(), reason: 'Withdrawn by the project manager after talking to the CEO.' });
+          }
+          if (pending.length) effects.withdrawn = pending.length;
+        }
+        const tasks = Array.isArray(out.tasks) ? out.tasks.filter((t) => t?.title).slice(0, 4) : [];
+        for (const t of tasks) {
+          const toDesigner = Boolean(t.needs_design && designer);
+          const ideaId = db.insert('ideas', {
+            project_id: project.id,
+            title: clip(String(t.title), 140),
+            pitch: 'Asked for by the CEO in conversation.',
+            plan: String(t.plan ?? ''),
+            effort: ['S', 'M', 'L'].includes(t.effort) ? t.effort : 'M',
+            author: 'ceo',
+            status: toDesigner ? 'design' : 'proposed',
+            created_at: now(),
+          });
+          if (!toDesigner) decideIdea(ideaId, true, 'ceo');
+        }
+        if (tasks.length) effects.tasks = tasks.map((t) => String(t.title));
+        db.insert('messages', { project_id: project.id, role: 'pm', text: String(out.reply), effects: JSON.stringify(effects), ts: now() });
+        emit(project.id, 'chat', `To the CEO: ${out.reply}`, { agentId: pm.id });
+        if (effects.memo) emit(project.id, 'chat', `Briefed the team. Standing guidance:\n${out.memo.trim()}`, { agentId: pm.id });
+      },
+    });
+  }
+
   /** The CEO hands the team a directive. It skips approval. */
   function addDirective(projectId, { title, plan }) {
     if (!String(title || '').trim()) throw new Error('A directive needs a title.');
@@ -219,7 +300,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
           count,
           done: db.all("SELECT title FROM tasks WHERE project_id = ? AND status = 'done' ORDER BY id DESC LIMIT 40", project.id),
           open: db.all(`SELECT title FROM tasks WHERE project_id = ? AND status IN (${OPEN.map(() => '?').join(',')})`, project.id, ...OPEN),
-          rejected: db.all("SELECT title, reason FROM ideas WHERE project_id = ? AND status = 'rejected' ORDER BY id DESC LIMIT 30", project.id),
+          rejected: db.all("SELECT title, reason FROM ideas WHERE project_id = ? AND status = 'rejected' AND decided_by != 'pm' ORDER BY id DESC LIMIT 30", project.id),
+          conversation: conversationOf(project.id, 8),
         }),
         tools: PM_READ_TOOLS,
         allowedTools: PM_READ_TOOLS,
@@ -273,7 +355,9 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
         db.update('ideas', idea.id, { status: 'proposed', design: spec });
         if (spec) emit(project.id, 'design', `Design spec ready for “${idea.title}”.`, { agentId: designer.id });
         const fresh = db.get('SELECT approval FROM projects WHERE id = ?', project.id);
-        if (fresh.approval === 'auto') decideIdea(idea.id, true, 'auto');
+        // Work the CEO asked for in conversation is already approved.
+        if (current.author === 'ceo') decideIdea(idea.id, true, 'ceo');
+        else if (fresh.approval === 'auto') decideIdea(idea.id, true, 'auto');
       },
     });
   }
@@ -384,6 +468,14 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
       const gate = budget.gate();
       if (!gate.ok) return;
       const slots = () => budget.config().maxParallel - busy.size;
+      // A message from the CEO comes before everything else, and is answered even while a project is paused.
+      for (const row of db.all("SELECT DISTINCT project_id FROM messages WHERE role = 'ceo' AND answered = 0")) {
+        if (slots() <= 0) break;
+        if ((cooldown.get(row.project_id) ?? 0) > now()) continue;
+        const project = db.get('SELECT * FROM projects WHERE id = ?', row.project_id);
+        const pm = db.get("SELECT * FROM agents WHERE project_id = ? AND role = 'pm'", row.project_id);
+        if (project && pm && !busy.has(pm.id)) chat(project, pm);
+      }
       for (const project of db.all("SELECT * FROM projects WHERE status = 'active' ORDER BY id")) {
         if (slots() <= 0) break;
         const agents = db.all('SELECT * FROM agents WHERE project_id = ? ORDER BY id', project.id);
@@ -427,7 +519,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
 
   return {
     createProject, updateProject, setStatus, deleteProject,
-    decideIdea, addDirective, ruleTask, summarize,
+    decideIdea, addDirective, ruleTask, summarize, tell,
     tick, recover,
     busy: () => busy,
   };

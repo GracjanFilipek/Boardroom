@@ -81,6 +81,7 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
       tasks: db.all("SELECT t.*, i.effort FROM tasks t LEFT JOIN ideas i ON i.id = t.idea_id WHERE t.project_id = ? AND t.status != 'cancelled' ORDER BY t.id DESC LIMIT 120", id),
       events: db.all('SELECT * FROM events WHERE project_id = ? ORDER BY id DESC LIMIT 200', id),
       handovers: db.all('SELECT * FROM handovers WHERE project_id = ? ORDER BY id DESC', id),
+      messages: db.all('SELECT * FROM (SELECT * FROM messages WHERE project_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', id).map((m) => ({ ...m, effects: m.effects ? JSON.parse(m.effects) : null })),
       spend: db.get('SELECT COALESCE(SUM(cost_usd), 0) AS usd, COUNT(*) AS runs FROM runs WHERE project_id = ?', id),
     };
   }
@@ -92,6 +93,7 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     ['PATCH', /^\/api\/projects\/(\d+)$/, ({ m, body }) => orch.updateProject(+m[1], body)],
     ['DELETE', /^\/api\/projects\/(\d+)$/, ({ m }) => orch.deleteProject(+m[1])],
     ['POST', /^\/api\/projects\/(\d+)\/(start|pause)$/, ({ m }) => orch.setStatus(+m[1], m[2] === 'start' ? 'active' : 'paused')],
+    ['POST', /^\/api\/projects\/(\d+)\/messages$/, ({ m, body }) => ({ id: orch.tell(+m[1], body.text) })],
     ['POST', /^\/api\/projects\/(\d+)\/directives$/, ({ m, body }) => orch.addDirective(+m[1], body)],
     ['POST', /^\/api\/ideas\/(\d+)\/(approve|reject)$/, ({ m, body }) => orch.decideIdea(+m[1], m[2] === 'approve', 'ceo', String(body.reason || '').slice(0, 500))],
     ['POST', /^\/api\/pick-folder$/, async () => ({ path: await pickFolder() })],

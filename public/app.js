@@ -74,7 +74,7 @@ const S = { state: null, detail: null, sessions: null, query: '', detailLevel: f
 
 function route() {
   const m = location.hash.match(/^#\/p\/(\d+)(?:\/(\w+))?/);
-  if (m) return { name: 'project', id: +m[1], tab: ['board', 'activity', 'handovers'].includes(m[2]) ? m[2] : 'overview' };
+  if (m) return { name: 'project', id: +m[1], tab: ['manager', 'board', 'activity', 'handovers'].includes(m[2]) ? m[2] : 'overview' };
   if (location.hash.startsWith('#/archive')) return { name: 'archive' };
   return { name: 'board' };
 }
@@ -224,6 +224,7 @@ function palette() {
     { label: 'Desk', glyph: 'board', run: go('#/') },
     { label: 'Archive', glyph: 'archive', run: go('#/archive') },
     ...projects.map((p) => ({ label: p.name, glyph: 'chevron', hint: 'Project', run: go(`#/p/${p.id}`) })),
+    ...projects.map((p) => ({ label: `Talk to the manager of ${p.name}`, glyph: 'chat', run: go(`#/p/${p.id}/manager`) })),
     { label: 'New project', glyph: 'plus', run: () => projectForm() },
     { label: 'Budget', glyph: 'gauge', run: budgetSheet },
     ...projects.map((p) => p.status === 'active'
@@ -413,7 +414,7 @@ function timelineItem(e, { compact = false, project, role, name } = {}) {
 // ---- project ----------------------------------------------------------------
 
 function projectView(r) {
-  const { project: p, agents, ideas, tasks, events, handovers, spend } = S.detail;
+  const { project: p, agents, ideas, tasks, events, handovers, spend, messages: talk } = S.detail;
   const summary = S.state.projects.find((x) => x.id === p.id) ?? { ...p, working: 0 };
   const pm = agents.find((a) => a.role === 'pm');
   const designer = agents.find((a) => a.role === 'designer');
@@ -430,7 +431,7 @@ function projectView(r) {
 
   const node = (role, name, title, a) => {
     const job = a?.job;
-    const what = job?.kind === 'ideate' ? 'Drafting proposals' : job?.kind === 'design' ? `Designing “${job.label}”` : job?.kind === 'review' ? `Reviewing “${taskTitle(job.taskId)}”` : job?.kind === 'build' ? `Building “${taskTitle(job.taskId)}”` : '';
+    const what = job?.kind === 'ideate' ? 'Drafting proposals' : job?.kind === 'chat' ? 'Talking with you' : job?.kind === 'design' ? `Designing “${job.label}”` : job?.kind === 'review' ? `Reviewing “${taskTitle(job.taskId)}”` : job?.kind === 'build' ? `Building “${taskTitle(job.taskId)}”` : '';
     const idle = !a ? null : !active ? 'Off the clock' : a.role === 'pm' && proposed.length ? 'Waiting for you' : 'Idle';
     return h('div', { class: `node${job ? ' live' : ''}` },
       avatar(role, '', Boolean(job), name),
@@ -463,12 +464,51 @@ function projectView(r) {
     h('div', { class: 'tabs', role: 'tablist' },
       h('span', { class: 'pill', 'data-keep-style': true }),
       tab('overview', 'Overview', proposed.length + attention.length, true),
+      tab('manager', 'Manager', talk.filter((m) => m.role === 'ceo' && !m.answered).length),
       tab('board', 'Board', openTasks.length),
       tab('activity', 'Activity'),
       tab('handovers', 'Handovers', handovers.length)));
 
   let body;
-  if (r.tab === 'board') {
+  if (r.tab === 'manager') {
+    const waiting = talk.some((m) => m.role === 'ceo' && !m.answered);
+    const gate = S.state.budget.gate;
+    const send = () => {
+      const input = document.getElementById('talk-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      act(() => api('POST', `/api/projects/${p.id}/messages`, { text }));
+    };
+    const effects = (e) => !e ? null : h('div', { class: 'say-effects' },
+      e.memo ? h('span', { class: 'chip green' }, 'Briefed the team') : null,
+      (e.tasks ?? []).map((t) => h('span', { class: 'chip' }, `Queued: ${t}`)),
+      e.withdrawn ? h('span', { class: 'chip orange' }, `Withdrew ${e.withdrawn} ${e.withdrawn === 1 ? 'proposal' : 'proposals'}`) : null);
+    body = h('div', { class: 'talk' },
+      h('div', { class: 'talk-main' },
+        talk.length
+          ? h('div', { class: 'chat' },
+              talk.map((m) => h('div', { class: `say ${m.role} enter`, 'data-key': `m${m.id}`, 'data-flip': `m${m.id}` },
+                avatar(m.role, 'sm', false, m.role === 'pm' ? pm.name : ''),
+                h('div', { class: 'say-body' },
+                  h('div', { class: 'say-head' }, h('strong', null, m.role === 'ceo' ? 'You' : pm.name), h('time', null, ago(m.ts))),
+                  h('div', { class: 'say-text' }, m.text),
+                  effects(m.effects)))),
+              waiting ? h('div', { class: 'say pm enter', 'data-key': 'pending' },
+                avatar('pm', 'sm', pm.job?.kind === 'chat', pm.name),
+                h('div', { class: 'say-body' }, h('div', { class: 'say-text muted' },
+                  pm.job?.kind === 'chat' ? [typing(), ' Thinking it over'] : !gate.ok ? 'On hold with the rest of the company. The answer comes when the budget reopens.' : pm.job ? 'Finishing what it is doing, then it answers.' : [typing(), ' Reading']))) : [])
+          : empty('chat', 'Talk to your project manager', 'Give a direction, ask for something, or change your mind. The manager answers, briefs the developers and the designer, and adjusts the plan.'),
+        !active && (openTasks.length || inDesign.length) ? h('p', { class: 'small muted' }, 'The project is paused. The manager still answers, but the team starts on queued work only after you press Start.') : null,
+        h('form', { class: 'composer', onsubmit: (e) => { e.preventDefault(); send(); } },
+          h('textarea', { id: 'talk-input', rows: '2', placeholder: 'Tell the manager what you want', 'aria-label': 'Message to the project manager', onkeydown: (e) => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } } }),
+          h('button', { class: 'btn primary', type: 'submit' }, icon('megaphone'), 'Send'))),
+      h('aside', { class: 'talk-side' },
+        h('span', { class: 'label' }, 'Standing guidance for the team'),
+        p.memo
+          ? h('div', { class: 'plan', style: 'margin-top:.6rem' }, p.memo)
+          : h('p', { class: 'small muted', style: 'margin-top:.6rem' }, 'Empty. When you set a rule or a preference, the manager writes it here. Developers and the designer read it before each run.')));
+  } else if (r.tab === 'board') {
     const lanes = [
       ['Queued', 'var(--text-3)', tasks.filter((t) => ['queued', 'changes'].includes(t.status)).reverse()],
       ['Building', 'var(--green)', tasks.filter((t) => t.status === 'in_progress')],

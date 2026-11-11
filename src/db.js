@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS runs (
   project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
   agent_id INTEGER,
   task_id INTEGER,
-  kind TEXT NOT NULL,                             -- ideate | design | build | review | summarize
+  kind TEXT NOT NULL,                             -- ideate | chat | design | build | review | summarize
   status TEXT NOT NULL DEFAULT 'running',         -- running | ok | error | interrupted
   cost_usd REAL NOT NULL DEFAULT 0,
   input_tokens INTEGER NOT NULL DEFAULT 0,
@@ -101,6 +101,16 @@ CREATE TABLE IF NOT EXISTS chats (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS chats_external ON chats(source, external_id);
 
+CREATE TABLE IF NOT EXISTS messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,                             -- ceo | pm
+  text TEXT NOT NULL,
+  effects TEXT,                                   -- JSON: what the manager did as a result
+  answered INTEGER NOT NULL DEFAULT 0,            -- for CEO messages: has the manager replied
+  ts INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS handovers (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -118,6 +128,7 @@ export function openDb(dataDir) {
   raw.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   raw.exec(SCHEMA);
   // Databases created before the designer joined lack this column.
+  if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'memo')) raw.exec("ALTER TABLE projects ADD COLUMN memo TEXT NOT NULL DEFAULT ''");
   if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();

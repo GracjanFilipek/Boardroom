@@ -140,6 +140,13 @@ export function createMockRunner({ delay = 900 } = {}) {
       structured = approve
         ? { verdict: 'approve', notes: 'Matches the spec. Tests pass.' }
         : { verdict: 'revise', notes: 'The happy path works. Add a test for the empty input case.' };
+    } else if (o.kind === 'chat') {
+      structured = {
+        reply: 'Understood. I added that to the standing guidance and queued one task for it. The developers pick it up next.',
+        memo: '- Keep every screen usable on a phone.\n- No new dependencies without a reason in the work order.',
+        tasks: [{ title: 'Make the main screen work on a phone', plan: '1. Find the layout styles.\n2. Stack the columns under 600px.\n3. Check at 390px wide.', effort: 'S', needs_design: false }],
+        withdraw_proposals: false,
+      };
     } else if (o.kind === 'design') {
       o.onEvent?.({ type: 'tool', text: 'Read public/app.css' });
       result = 'Goal\nOne clear action per screen.\n\nLayout\nReuse the existing card and the primary button.\n\nStates\nEmpty, loading, done, error.\n\nCopy\nButton: "Undo". Toast: "Restored."';

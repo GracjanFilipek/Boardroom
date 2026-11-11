@@ -185,3 +185,33 @@ test('a proposal that needs design goes through the designer, and every agent ge
   assert.match(prompt('build'), /^# Developer/);
   close();
 });
+
+test('the CEO talks to the manager, who briefs the team and queues the work', async () => {
+  const prompts = [];
+  const base = createMockRunner({ delay: 5 });
+  const runner = (o) => {
+    prompts.push({ kind: o.kind, prompt: o.prompt });
+    return base(o);
+  };
+  const { db, orch, close } = company(runner);
+  const id = orch.createProject({ name: 'Talkative', devs: 1 });
+  assert.throws(() => orch.tell(id, '   '), /Write a message/);
+  orch.tell(id, 'Everything must work on a phone from now on.');
+
+  // The manager answers even though the project was never started.
+  await until(() => db.get("SELECT COUNT(*) AS n FROM messages WHERE role = 'pm'").n === 1);
+  const reply = db.get("SELECT * FROM messages WHERE role = 'pm'");
+  assert.deepEqual(Object.keys(JSON.parse(reply.effects)).sort(), ['memo', 'tasks']);
+  assert.equal(db.get("SELECT answered FROM messages WHERE role = 'ceo'").answered, 1);
+  assert.match(db.get('SELECT memo FROM projects').memo, /usable on a phone/);
+  const task = db.get('SELECT * FROM tasks');
+  assert.equal(task.title, 'Make the main screen work on a phone');
+  assert.equal(db.get('SELECT decided_by FROM ideas WHERE id = ?', task.idea_id).decided_by, 'ceo');
+
+  // Once the project runs, the developer gets the memo and the manager plans with the conversation in mind.
+  orch.setStatus(id, 'active');
+  await until(() => prompts.some((p) => p.kind === 'build') && prompts.some((p) => p.kind === 'ideate'));
+  assert.match(prompts.find((p) => p.kind === 'build').prompt, /Standing guidance from the CEO[\s\S]*usable on a phone/);
+  assert.match(prompts.find((p) => p.kind === 'ideate').prompt, /CEO: Everything must work on a phone/);
+  close();
+});

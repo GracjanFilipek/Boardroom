@@ -1,4 +1,4 @@
-# Agent Corp
+# Boardroom
 
 A company of headless Claude agents. You are the CEO.
 
@@ -6,7 +6,7 @@ Bring a repository or one rough sentence. The project manager does the thinking:
 
 Each project gets a project manager, a designer and a team of developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
 
-![The Boardroom: decisions waiting for the CEO, live agent activity, projects](docs/boardroom.png)
+![The Desk: decisions waiting for the CEO, live agent activity, projects](docs/desk.png)
 
 ![A project: org chart with live agent status](docs/project.png)
 
@@ -28,7 +28,7 @@ The server has no dependencies. Data lives in `./data` (SQLite).
 
 ```sh
 npm install      # fetches Electron, once
-npm run app      # opens Agent Corp in its own window
+npm run app      # opens Boardroom in its own window
 npm run app:demo # same, with canned agents
 npm run dist     # builds an installer for your system into ./release
 ```
@@ -40,7 +40,7 @@ The app runs the same server inside itself on a private local port, so nothing e
 1. **Found a project.** Give it a name, a brief and a folder. Pick the folder in Finder or File Explorer with the Choose button, or type the path. Leave the folder empty and you get a fresh git workspace under `data/workspaces`.
 2. **Start it.** The project manager reads the repository (read-only tools) and returns proposals as structured output.
 3. **Design.** A proposal that changes what a person sees or does goes to the designer first, who writes a design spec for it. The spec travels with the task to the developer.
-4. **Decide.** Approve or reject in the Boardroom. A rejection can carry a reason, and the project manager reads it before the next round. On autopilot this step disappears.
+4. **Decide.** Approve or reject at your Desk. A rejection can carry a reason, and the project manager reads it before the next round. On autopilot this step disappears.
 5. **Build.** A free developer picks up the task and runs in the project folder with `--permission-mode acceptEdits` and an allowlist of commands.
 6. **Review.** The project manager checks the diff against the work order. It approves, or sends the task back with exact instructions. The same developer resumes its session with `--resume`.
 7. **Escalate.** After the configured number of review rounds the task lands on your desk. Accept it, send it back, or cancel it.
@@ -63,7 +63,7 @@ The designer has the Skill tool, so it applies design skills installed in your C
 
 ## Finding your way around
 
-- **Boardroom.** Your desk: decisions waiting, a live feed of what agents say to each other, every project at a glance.
+- **Desk.** Your home screen: decisions waiting, a live feed of what agents say to each other, every project at a glance.
 - **Project.** Four tabs. Overview holds the org chart with live status and your pending decisions. Board is the pipeline, and tickets travel between lanes as work moves. Activity is the full conversation, with tool calls on request. Handovers lists the chats you gave the team.
 - **Jump to.** Press Cmd+K or Ctrl+K to open a project, start or pause one, or open the budget.
 
@@ -80,7 +80,7 @@ Left alone, the loop would run until your subscription limit. Four brakes stop i
 | Daily cap in USD at API prices | off | Budget |
 | New tasks per project per day | 10 | Project settings |
 
-Claude Code reports how full both subscription windows are after each run. Agent Corp stores the reading it saw first in a window and counts growth from there as the agents' share. If you use Claude yourself during the same window, that usage counts toward the share too, so treat the number as an upper bound.
+Claude Code reports how full both subscription windows are after each run. Boardroom stores the reading it saw first in a window and counts growth from there as the agents' share. If you use Claude yourself during the same window, that usage counts toward the share too, so treat the number as an upper bound.
 
 A closed gate lets running work finish and starts nothing new. It opens when the window resets.
 

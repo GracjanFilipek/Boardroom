@@ -160,11 +160,11 @@ function sidebar(r) {
   return h('nav', { id: 'sidebar', 'aria-label': 'Company' },
     h('div', { class: 'brand' },
       h('div', { class: 'brand-mark' }, icon('crown')),
-      h('div', { class: 'brand-name' }, 'Agent Corp', h('small', null, runner === 'mock' ? 'Demo mode' : 'Claude headless'))),
+      h('div', { class: 'brand-name' }, 'Boardroom', h('small', null, runner === 'mock' ? 'Demo mode' : 'Claude headless'))),
     h('button', { class: 'jump', onclick: palette }, icon('search'), h('span', null, 'Jump to…'), h('kbd', null, navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl K')),
     h('div', { class: 'nav' },
       h('span', { class: 'pill', 'data-keep-style': true }),
-      link('#/', r.name === 'board', icon('board'), h('span', { class: 'grow' }, 'Boardroom'), inbox.length ? h('span', { class: 'badge' }, String(inbox.length)) : null),
+      link('#/', r.name === 'board', icon('board'), h('span', { class: 'grow' }, 'Desk'), inbox.length ? h('span', { class: 'badge' }, String(inbox.length)) : null),
       link('#/archive', r.name === 'archive', icon('archive'), h('span', { class: 'grow' }, 'Archive')),
       h('div', { class: 'nav-label' }, 'Projects'),
       projects.map((p) =>
@@ -182,7 +182,7 @@ function topbar(r) {
   const project = r.name === 'project' ? S.state.projects.find((p) => p.id === r.id) : null;
   const crumbs = project
     ? [h('a', { href: '#/' }, 'Projects'), icon('chevron'), h('strong', null, project.name)]
-    : [h('strong', null, r.name === 'archive' ? 'Archive' : 'Boardroom')];
+    : [h('strong', null, r.name === 'archive' ? 'Archive' : 'Desk')];
   const live = !budget.gate.ok
     ? h('span', { class: 'live-pill hold' }, icon('gauge'), 'On hold')
     : stats.working
@@ -194,7 +194,7 @@ function topbar(r) {
 function tabbar(r) {
   const { inbox } = S.state;
   return h('nav', { id: 'tabbar', 'aria-label': 'Sections' },
-    h('a', { href: '#/', 'aria-current': r.name === 'board' ? 'page' : null }, icon('board'), 'Boardroom', inbox.length ? h('span', { class: 'badge' }, String(inbox.length)) : null),
+    h('a', { href: '#/', 'aria-current': r.name === 'board' ? 'page' : null }, icon('board'), 'Desk', inbox.length ? h('span', { class: 'badge' }, String(inbox.length)) : null),
     h('button', { onclick: projectsSheet, 'aria-current': r.name === 'project' ? 'page' : null }, icon('grid'), 'Projects'),
     h('a', { href: '#/archive', 'aria-current': r.name === 'archive' ? 'page' : null }, icon('archive'), 'Archive'),
     h('button', { onclick: budgetSheet }, icon('gauge'), 'Budget'));
@@ -221,7 +221,7 @@ function palette() {
   const { projects } = S.state;
   const go = (hash) => () => (location.hash = hash);
   const commands = [
-    { label: 'Boardroom', glyph: 'board', run: go('#/') },
+    { label: 'Desk', glyph: 'board', run: go('#/') },
     { label: 'Archive', glyph: 'archive', run: go('#/archive') },
     ...projects.map((p) => ({ label: p.name, glyph: 'chevron', hint: 'Project', run: go(`#/p/${p.id}`) })),
     { label: 'New project', glyph: 'plus', run: () => projectForm() },
@@ -287,7 +287,7 @@ function boardView() {
 
   return h('div', { 'data-view': 'board' },
     h('div', null,
-      h('h1', { class: 'display' }, 'Boardroom'),
+      h('h1', { class: 'display' }, 'Desk'),
       h('p', { class: 'lede' }, inbox.length ? `${inbox.length} ${inbox.length === 1 ? 'decision waits' : 'decisions wait'} for you.` : 'No decisions wait for you.'),
       holdBanner()),
     h('div', { class: 'stats-row' },
@@ -483,7 +483,7 @@ function projectView(r) {
               const who = agentById.get(t.assignee);
               const working = t.status === 'in_progress' || (t.status === 'review' && pm.job?.taskId === t.id);
               return h('button', { class: `ticket enter${working ? ' working' : ''}`, 'data-key': `t${t.id}`, 'data-flip': `t${t.id}`, onclick: () => taskSheet(t.id) },
-                h('span', { class: 'ticket-id' }, `AC-${t.id}`),
+                h('span', { class: 'ticket-id' }, `BR-${t.id}`),
                 t.title,
                 h('span', { class: 'ticket-meta' },
                   who ? [avatar('dev', 'xs', t.status === 'in_progress', who.name), who.name] : 'Unassigned',
@@ -590,7 +590,7 @@ function projectForm(p, devCount = 2) {
     h('label', { class: 'field' }, h('span', null, 'Brief'), h('textarea', { name: 'brief', placeholder: 'What the product does, who uses it, what matters this month.' }, v.brief), h('small', null, 'The project manager plans from this text. Agents read it before each run.')),
     p ? null : h('div', { class: 'field' }, h('label', { for: 'workdir' }, h('span', null, 'Folder')),
       h('div', { class: 'pick' }, folderInput, h('button', { class: 'btn', type: 'button', onclick: choose }, icon('archive'), FILES_APP ? `Choose in ${FILES_APP}` : 'Choose folder')),
-      h('small', null, 'An existing repository on this machine. Leave empty and Agent Corp creates a fresh git workspace.')),
+      h('small', null, 'An existing repository on this machine. Leave empty and Boardroom creates a fresh git workspace.')),
     h('div', { class: 'row2' },
       h('label', { class: 'field' }, h('span', null, 'Who approves proposals'), select('approval', [['ceo', 'You approve each one'], ['auto', 'Autopilot, no approval']], v.approval)),
       h('label', { class: 'field' }, h('span', null, 'Developers'), select('devs', [1, 2, 3, 4, 5, 6].map((n) => [n, String(n)]), devCount))),
@@ -642,7 +642,7 @@ async function taskSheet(id) {
   const rule = (action) => () => { sheet.close(); act(() => api('POST', `/api/tasks/${id}/${action}`)); };
   const section = (title, text) => (text ? [h('h3', null, title), h('div', { class: 'plan' }, text)] : null);
   const sheet = openSheet({
-    title: `AC-${task.id}  ${task.title}`,
+    title: `BR-${task.id}  ${task.title}`,
     wide: true,
     body: h('div', null,
       h('dl', { class: 'kv' },
@@ -749,7 +749,7 @@ function importSheet() {
       step('1', 'Request the export', ['Open ', h('a', { href: 'https://claude.ai/settings/data-privacy-controls', target: '_blank', rel: 'noopener' }, 'claude.ai, Settings, Privacy'), ' and press Export data.']),
       step('2', 'Wait for the email', 'Anthropic emails you a download link, usually within minutes. The link expires after 24 hours.'),
       step('3', 'Download the zip', 'It lands in your Downloads folder with a name that starts with “data-”.'),
-      step('4', 'Pick it here', 'Choose the zip as it is. Agent Corp reads conversations.json out of it. Nothing leaves this computer.'),
+      step('4', 'Pick it here', 'Choose the zip as it is. Boardroom reads conversations.json out of it. Nothing leaves this computer.'),
       picker),
     foot: [h('button', { class: 'btn primary', onclick: () => picker.click() }, icon('handover'), 'Choose the export file')],
   });

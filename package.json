@@ -1,5 +1,5 @@
 {
-  "name": "agent-corp",
+  "name": "boardroom",
   "version": "0.1.0",
   "description": "A company of headless Claude agents. You are the CEO.",
   "type": "module",
@@ -20,10 +20,10 @@
     "electron-builder": "^26.18.0"
   },
   "main": "electron/main.js",
-  "author": "Agent Corp",
+  "author": "Boardroom",
   "build": {
-    "appId": "dev.agentcorp.app",
-    "productName": "Agent Corp",
+    "appId": "dev.boardroom.app",
+    "productName": "Boardroom",
     "asar": false,
     "files": [
       "electron/**",
@@ -53,5 +53,5 @@
     },
     "icon": "electron/icon.png"
   },
-  "productName": "Agent Corp"
+  "productName": "Boardroom"
 }

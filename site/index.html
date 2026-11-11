@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--page-->
-<title>Agent Corp</title>
+<title>Boardroom</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <meta name="description" content="Give an AI project manager a repository or a rough idea. It decides what to build and keeps handing work to AI developers running on Claude Code.">
 <style>
@@ -227,7 +227,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 <body>
 <!--page-->
 <header class="wrap top">
-  <a class="brand" href="#top"><span class="mark" data-icon="crown"></span>Agent Corp</a>
+  <a class="brand" href="#top"><span class="mark" data-icon="crown"></span>Boardroom</a>
   <nav aria-label="Sections">
     <a href="#manager">The manager</a>
     <a href="#flow">How it works</a>
@@ -243,14 +243,14 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     <h1>Bring a rough idea. The project manager works out the rest.</h1>
     <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a team of AI developers. You are the CEO: approve, reject, or step out.</p>
     <div class="cta">
-      <a class="btn primary" href="#get">Get Agent Corp</a>
+      <a class="btn primary" href="#get">Get Boardroom</a>
       <a class="btn" href="#manager">Meet the manager</a>
       <small>macOS, Windows, Linux</small>
     </div>
   </div>
 
   <div class="wrap">
-    <div class="window" aria-label="Agent Corp, a project overview">
+    <div class="window" aria-label="Boardroom, a project overview">
       <div class="window-bar"><i></i><i></i><i></i><span class="label">Invoice app / Overview</span><span class="label live" id="liveLabel"><span class="dots" style="display:inline-flex"><i></i><i></i><i></i></span><span id="liveText">1 agent working</span></span></div>
       <div class="window-body">
         <div class="org">
@@ -276,8 +276,8 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
           <span class="label" style="margin-top:.5rem">Board</span>
           <div class="lanes">
             <div class="lane" id="lQueued"><span class="label"><i style="--c:var(--text-3)"></i>Queued</span></div>
-            <div class="lane" id="lBuilding"><span class="label"><i style="--c:var(--green)"></i>Building</span><div class="ticket working" id="tRunning"><small>AC-12</small>CSV export for reports</div></div>
-            <div class="lane" id="lShipped"><span class="label"><i style="--c:var(--ink)"></i>Shipped</span><div class="ticket"><small>AC-11</small>Onboarding checklist</div></div>
+            <div class="lane" id="lBuilding"><span class="label"><i style="--c:var(--green)"></i>Building</span><div class="ticket working" id="tRunning"><small>BR-12</small>CSV export for reports</div></div>
+            <div class="lane" id="lShipped"><span class="label"><i style="--c:var(--ink)"></i>Shipped</span><div class="ticket"><small>BR-11</small>Onboarding checklist</div></div>
           </div>
         </div>
       </div>
@@ -316,7 +316,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     <h2>From idea to shipped, and only one step needs you.</h2>
     <ol class="flow">
       <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders. Anything a person will see goes to the designer, who adds the design spec.</p></li>
-      <li><span class="label">02</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from the Boardroom. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
+      <li><span class="label">02</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from your Desk. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
       <li><span class="label">03</span><span class="ico" data-icon="terminal"></span><h3>Developers build</h3><p>A free developer picks up the task, edits files in the project folder, runs the tests and commits.</p></li>
       <li><span class="label">04</span><span class="ico" data-icon="check"></span><h3>The manager reviews</h3><p>It checks the diff against the work order. Work that fails review goes back. A dispute that will not settle comes to you.</p></li>
     </ol>
@@ -331,7 +331,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
         <span class="label">Agents' share of your 5-hour window</span>
         <b><span id="pct">6.0</span>% <span class="of">of 10%</span></b>
         <div class="cells" id="cells"></div>
-        <p>Claude Code reports how full your subscription window is after each run. Agent Corp reads that number and holds new work once the agents have used their share.</p>
+        <p>Claude Code reports how full your subscription window is after each run. Boardroom reads that number and holds new work once the agents have used their share.</p>
       </div>
       <dl class="brakes">
         <div><dt>10%</dt><dd><strong>Share of the window.</strong> Agents stop after burning this slice of your 5-hour or weekly limit.</dd></div>
@@ -386,14 +386,14 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
       <ul class="needs">
         <li><strong>Node 22.13 or newer.</strong> The server has no other dependencies.</li>
         <li><strong>Claude Code, logged in.</strong> Agents run as <code>claude -p</code> under your own login, on a Pro or Max plan or an API key.</li>
-        <li><strong>A folder to work in.</strong> Point a project at a repository, or let Agent Corp create an empty git workspace.</li>
+        <li><strong>A folder to work in.</strong> Point a project at a repository, or let Boardroom create an empty git workspace.</li>
       </ul>
     </div>
   </section>
 </main>
 
 <footer class="wrap">
-  <span>Agent Corp drives Claude Code. It is an independent project, not made by Anthropic.</span>
+  <span>Boardroom drives Claude Code. It is an independent project, not made by Anthropic.</span>
   <span>Pixel art drawn on a 10 by 10 grid.</span>
 </footer>
 
@@ -517,7 +517,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
       await wait(900);
       $('card').classList.add('gone');
       // The manager hands the task to Ada.
-      const ticket = Object.assign(document.createElement('div'), { className: 'ticket', innerHTML: `<small>AC-${id++}</small>${title}` });
+      const ticket = Object.assign(document.createElement('div'), { className: 'ticket', innerHTML: `<small>BR-${id++}</small>${title}` });
       $('lQueued').append(ticket);
       ticket.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300 });
       state('nPm', 'Idle');

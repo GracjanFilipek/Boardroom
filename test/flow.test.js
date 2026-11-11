@@ -9,7 +9,7 @@ import { createMockRunner } from '../src/claude.js';
 import { openDb } from '../src/db.js';
 import { createBudget } from '../src/budget.js';
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'agent-corp-test-'));
+const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'boardroom-test-'));
 const until = async (fn, ms = 4000) => {
   const end = Date.now() + ms;
   while (Date.now() < end) {

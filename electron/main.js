@@ -1,4 +1,4 @@
-// Desktop shell. Starts the Agent Corp server inside the app on a private local port
+// Desktop shell. Starts the Boardroom server inside the app on a private local port
 // and shows it in a window. Data lives in the per-user application folder.
 
 import { app, BrowserWindow, Menu, shell, dialog, ipcMain } from 'electron';
@@ -12,8 +12,8 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const mock = process.env.CORP_RUNNER === 'mock';
 const iconFile = path.join(root, 'electron', 'icon.png');
 
-app.setName('Agent Corp');
-app.setAboutPanelOptions({ applicationName: 'Agent Corp', applicationVersion: app.getVersion(), iconPath: iconFile });
+app.setName('Boardroom');
+app.setAboutPanelOptions({ applicationName: 'Boardroom', applicationVersion: app.getVersion(), iconPath: iconFile });
 let win = null;
 let origin = null;
 let stopServer = () => {};
@@ -68,10 +68,10 @@ function startWithSystemNode(dataDir) {
     let log = '';
     child.stdout.on('data', (chunk) => {
       log += chunk;
-      if (log.includes('Agent Corp is open')) resolve(`http://127.0.0.1:${port}`);
+      if (log.includes('Boardroom is open')) resolve(`http://127.0.0.1:${port}`);
     });
     child.stderr.on('data', (chunk) => (log += chunk));
-    child.on('error', () => reject(new Error('Agent Corp needs Node 22.13 or newer on your PATH.')));
+    child.on('error', () => reject(new Error('Boardroom needs Node 22.13 or newer on your PATH.')));
     child.on('exit', (code) => reject(new Error(`The server stopped (code ${code}).\n${log.slice(-600)}`)));
     stopServer = () => child.kill();
   });
@@ -85,7 +85,7 @@ function createWindow() {
     minWidth: 420,
     minHeight: 560,
     show: false,
-    title: 'Agent Corp',
+    title: 'Boardroom',
     icon: iconFile,
     backgroundColor: '#f5f4ef',
     titleBarStyle: mac ? 'hiddenInset' : 'default',
@@ -133,13 +133,23 @@ if (!app.requestSingleInstanceLock()) {
     // Started with `npm run app`, the Dock would show Electron's own icon.
     if (process.platform === 'darwin' && !app.isPackaged) app.dock?.setIcon(iconFile);
     const dataDir = process.env.CORP_DATA_DIR ? path.resolve(process.env.CORP_DATA_DIR) : path.join(app.getPath('userData'), mock ? 'demo' : 'company');
+    // The app used to be called Agent Corp. Carry a company founded under that name over, once.
+    if (!process.env.CORP_DATA_DIR && !fs.existsSync(dataDir)) {
+      for (const former of ['Agent Corp', 'agent-corp']) {
+        const old = path.join(app.getPath('appData'), former, path.basename(dataDir));
+        if (!fs.existsSync(old)) continue;
+        fs.mkdirSync(path.dirname(dataDir), { recursive: true });
+        fs.cpSync(old, dataDir, { recursive: true });
+        break;
+      }
+    }
     try {
       origin = await startInProcess(dataDir).catch((err) => {
         if (err?.code !== 'ERR_UNKNOWN_BUILTIN_MODULE') throw err;
         return startWithSystemNode(dataDir);
       });
     } catch (err) {
-      dialog.showErrorBox('Agent Corp could not start', String(err?.message ?? err));
+      dialog.showErrorBox('Boardroom could not start', String(err?.message ?? err));
       return app.quit();
     }
     if (process.platform !== 'darwin') Menu.setApplicationMenu(null);

@@ -34,7 +34,7 @@ export function unzipEntry(buf, match) {
       const data = buf.subarray(start, start + size);
       if (method === 0) return Buffer.from(data);
       if (method === 8) return zlib.inflateRawSync(data);
-      throw new Error('This zip uses a compression method Agent Corp cannot read. Unzip it and import conversations.json.');
+      throw new Error('This zip uses a compression method Boardroom cannot read. Unzip it and import conversations.json.');
     }
     at += 46 + nameLen + extraLen + commentLen;
   }

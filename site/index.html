@@ -6,7 +6,7 @@
 <!--page-->
 <title>Agent Corp</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="A company of headless Claude agents. A project manager proposes work, you approve it, developers build it with Claude Code.">
+<meta name="description" content="Give an AI project manager a repository or a rough idea. It decides what to build and keeps handing work to AI developers running on Claude Code.">
 <style>
 /* Layout: one left-aligned column on a 68rem measure. The product demo carries the hero; ruled rows carry the rest. */
 :root {
@@ -68,7 +68,7 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 
 /* hero */
 .hero { padding-block: 3.2rem 2.4rem; display: grid; gap: 1.3rem; }
-.hero h1 { font-size: clamp(2.3rem, 6.2vw, 4.4rem); line-height: 1.02; letter-spacing: -0.04em; font-weight: 750; max-width: 15ch; text-wrap: balance; }
+.hero h1 { font-size: clamp(2.2rem, 5.6vw, 4rem); line-height: 1.03; letter-spacing: -0.04em; font-weight: 750; max-width: 19ch; text-wrap: balance; }
 .hero p { font-size: clamp(1.05rem, 1.6vw, 1.22rem); color: var(--text-2); max-width: 38rem; }
 .cta { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.4rem; }
 .cta small { color: var(--text-3); font: 500 0.74rem var(--mono); margin-left: 0.4rem; }
@@ -137,6 +137,19 @@ section { padding-block: 4.2rem 0; }
 section > h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); line-height: 1.08; letter-spacing: -0.03em; font-weight: 720; max-width: 22ch; text-wrap: balance; margin-top: 0.7rem; }
 section > .intro { color: var(--text-2); max-width: 40rem; margin-top: 0.8rem; font-size: 1.05rem; }
 
+.mind { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 2.5rem; margin-top: 2.2rem; align-items: start; }
+.brief { background: var(--ink); color: var(--on-ink); border-radius: 8px; padding: 1.3rem; display: grid; gap: 1rem; }
+.brief .label { color: color-mix(in srgb, var(--on-ink) 60%, transparent); }
+.brief blockquote { margin: 0; font-size: clamp(1.25rem, 2.4vw, 1.6rem); line-height: 1.2; letter-spacing: -0.02em; font-weight: 650; }
+.brief .by { display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; color: color-mix(in srgb, var(--on-ink) 70%, transparent); }
+.rounds { display: grid; gap: 0.6rem; min-width: 0; }
+.rounds ol { list-style: none; display: grid; border-top: 1px solid var(--line-strong); }
+.rounds li { display: grid; grid-template-columns: 4.8rem 1fr; gap: 1rem; padding: 0.85rem 0; border-bottom: 1px solid var(--line); align-items: start; }
+.rounds .chip { justify-self: start; margin-top: 0.15rem; }
+.rounds strong { font-size: 0.98rem; letter-spacing: -0.01em; }
+.rounds p { font-size: 0.88rem; color: var(--text-2); margin-top: 0.15rem; }
+.grid.traits { margin-top: 2.4rem; }
+
 .flow { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 2.2rem; border-top: 1px solid var(--line-strong); }
 .flow li { padding: 1.2rem 1.2rem 0 0; display: grid; gap: 0.4rem; align-content: start; }
 .flow li + li { padding-left: 1.2rem; border-left: 1px solid var(--line); }
@@ -186,7 +199,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 
 @media (max-width: 860px) {
   .top nav { display: none; }
-  .window-body, .leash, .get { grid-template-columns: 1fr; }
+  .window-body, .leash, .get, .mind { grid-template-columns: 1fr; }
   .org { border-right: 0; border-bottom: 1px solid var(--line); }
   .flow, .grid { grid-template-columns: 1fr 1fr; }
   .flow li:nth-child(odd) { padding-left: 0; border-left: 0; }
@@ -216,6 +229,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 <header class="wrap top">
   <a class="brand" href="#top"><span class="mark" data-icon="crown"></span>Agent Corp</a>
   <nav aria-label="Sections">
+    <a href="#manager">The manager</a>
     <a href="#flow">How it works</a>
     <a href="#budget">Budget</a>
     <a href="#features">Features</a>
@@ -226,11 +240,11 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 <main id="top">
   <div class="wrap hero">
     <span class="label">Agentic workflows on Claude Code, headless</span>
-    <h1>A company of AI agents. You are the CEO.</h1>
-    <p>A project manager reads your repository and proposes work. You approve or reject. Developers build what you approved, and the manager reviews it. Each agent is a headless Claude Code run on your own machine.</p>
+    <h1>Bring a rough idea. The project manager works out the rest.</h1>
+    <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a team of AI developers. You are the CEO: approve, reject, or step out.</p>
     <div class="cta">
       <a class="btn primary" href="#get">Get Agent Corp</a>
-      <a class="btn" href="#flow">See how work flows</a>
+      <a class="btn" href="#manager">Meet the manager</a>
       <small>macOS, Windows, Linux</small>
     </div>
   </div>
@@ -270,9 +284,36 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     </div>
   </div>
 
+  <section class="wrap" id="manager">
+    <span class="label">The project manager</span>
+    <h2>It thinks for itself, and it does not stop.</h2>
+    <p class="intro">Most agent tools wait for your next prompt. This one has a manager whose job is to have the ideas. You set the direction once. The manager owns the roadmap from there.</p>
+    <div class="mind">
+      <div class="brief">
+        <span class="label">What you write, once</span>
+        <blockquote>A tool for freelancers to send invoices. Make it good.</blockquote>
+        <div class="by"><span class="face sm" data-face="ceo"></span>You, Chief Executive</div>
+      </div>
+      <div class="rounds">
+        <span class="label">What the manager comes back with (example)</span>
+        <ol>
+          <li><span class="chip">Round 1</span><div><strong>Smallest version that sends one invoice</strong><p>An empty repository gets a running core first: one client, one invoice, a PDF.</p></div></li>
+          <li><span class="chip">Round 1</span><div><strong>Invoice numbering that survives deletes</strong><p>Tax offices expect gapless numbers. Nobody asked for this. The manager raised it.</p></div></li>
+          <li><span class="chip">Round 2</span><div><strong>Late-payment reminders</strong><p>Proposed after reading what round 1 shipped and seeing due dates had no follow-up.</p></div></li>
+          <li><span class="chip">Round 3</span><div><strong>Recurring invoices for retainers</strong><p>You rejected a dashboard with the note "too early". The manager changed course.</p></div></li>
+        </ol>
+      </div>
+    </div>
+    <div class="grid traits">
+      <article><span class="ico" data-icon="search"></span><h3>It reads before it proposes</h3><p>Every round starts in the code. The manager knows what exists, what shipped last and what is half-finished.</p></article>
+      <article><span class="ico" data-icon="idea"></span><h3>It decides the how, too</h3><p>Each idea arrives as a work order: steps, files to touch, how to verify. A developer starts without asking you anything.</p></article>
+      <article><span class="ico" data-icon="back"></span><h3>It keeps coming back</h3><p>When the board runs low, it drafts the next round. Your rejections and their reasons shape what it proposes next.</p></article>
+    </div>
+  </section>
+
   <section class="wrap" id="flow">
     <span class="label">How work flows</span>
-    <h2>Four steps, and only one of them needs you.</h2>
+    <h2>From idea to shipped, and only one step needs you.</h2>
     <ol class="flow">
       <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders a developer can follow without asking questions.</p></li>
       <li><span class="label">02</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from the Boardroom. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
@@ -368,6 +409,8 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     megaphone: ['..........', '.......##.', '.....####.', '.########.', '#########.', '#########.', '.########.', '..##.####.', '..##...##.', '..........'],
     grid: ['..........', '.###..###.', '.###..###.', '.###..###.', '..........', '..........', '.###..###.', '.###..###.', '.###..###.', '..........'],
     idea: ['..######..', '.#......#.', '#........#', '#........#', '#........#', '.#......#.', '..#....#..', '..######..', '...####...', '...####...'],
+    search: ['..####....', '.#....#...', '#......#..', '#......#..', '#......#..', '.#....#...', '..####.#..', '.......##.', '........##', '.........#'],
+    back: ['..........', '...#......', '..##......', '.########.', '..##.....#', '...#.....#', '.........#', '....#####.', '..........', '..........'],
     terminal: ['..........', '##########', '#........#', '#.#......#', '#..#.....#', '#.#......#', '#....###.#', '#........#', '##########', '..........'],
   };
   const FACES = {

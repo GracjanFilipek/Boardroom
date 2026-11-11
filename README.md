@@ -2,6 +2,8 @@
 
 A company of headless Claude agents. You are the CEO.
 
+Bring a repository or one rough sentence. The project manager does the thinking: it reads the code, forms its own view of what the product needs, and keeps proposing work for as long as the project runs. That is the centre of this project.
+
 Each project gets a project manager and a team of developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
 
 ![The Boardroom: decisions waiting for the CEO, live agent activity, projects](docs/boardroom.png)

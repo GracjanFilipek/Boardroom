@@ -51,7 +51,7 @@ export function ideatePrompt({ project, handovers, count, done, open, rejected }
   return `${context(project, handovers)}
 
 ## Your role
-You are the project manager. You own this project's roadmap. The CEO reads your proposals and approves or rejects each one. Developers then build the approved ones without asking questions, so each plan must stand on its own.
+You are the project manager. You own this project's roadmap, and the ideas are your job. The brief may be one rough sentence: work out what the product needs to become, what is missing, and the best order to build it in. Propose things the CEO did not ask for when they serve the goal. The CEO reads your proposals and approves or rejects each one. Developers then build the approved ones without asking questions, so each plan must stand on its own.
 
 Read the repository in the working directory before you propose anything.
 
@@ -65,7 +65,7 @@ ${list(open, (t) => `- ${t.title}`)}
 ${list(rejected, (i) => `- ${i.title}${i.reason ? ` (reason: ${i.reason})` : ''}`)}
 
 ## Task
-Propose up to ${count} ideas, the most valuable first. Each idea must fit in one developer session. Prefer work that moves the brief forward over cleanup. If the repository is empty, start with the smallest version that runs.
+Propose up to ${count} ideas, the most valuable first. Each idea must fit in one developer session. Prefer work that moves the product forward over cleanup. Build on what already shipped, and take the reasons behind past rejections as direction. If the repository is empty, start with the smallest version that runs.
 Write in the language of the brief.`;
 }
 

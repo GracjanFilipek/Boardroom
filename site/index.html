@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!--page-->
+<title>Agent Corp</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A company of headless Claude agents. A project manager proposes work, you approve it, developers build it with Claude Code.">
+<style>
+/* Layout: one left-aligned column on a 68rem measure. The product demo carries the hero; ruled rows carry the rest. */
+:root {
+  --bg: #f5f4ef;
+  --surface: #fffefb;
+  --surface-2: #eeede6;
+  --surface-3: #e2e0d7;
+  --ink: #17160f;
+  --on-ink: #fffefb;
+  --text-2: #5d5b52;
+  --text-3: #8b897e;
+  --line: rgba(23, 22, 15, 0.12);
+  --line-strong: rgba(23, 22, 15, 0.24);
+  --green: #1a7f37;
+  --red: #c0352b;
+  --tile: #e6e3d8;
+  --sans: system-ui, -apple-system, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11110f; --surface: #191917; --surface-2: #222220; --surface-3: #2d2d2a;
+    --ink: #eeece4; --on-ink: #11110f; --text-2: #a3a196; --text-3: #74726a;
+    --line: rgba(238, 236, 228, 0.11); --line-strong: rgba(238, 236, 228, 0.24);
+    --green: #4cc26c; --red: #ef6b60; --tile: #2a2a27; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11110f; --surface: #191917; --surface-2: #222220; --surface-3: #2d2d2a;
+  --ink: #eeece4; --on-ink: #11110f; --text-2: #a3a196; --text-3: #74726a;
+  --line: rgba(238, 236, 228, 0.11); --line-strong: rgba(238, 236, 228, 0.24);
+  --green: #4cc26c; --red: #ef6b60; --tile: #2a2a27; color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 1rem/1.5 var(--sans); -webkit-font-smoothing: antialiased; }
+h1, h2, h3, p, ol, ul, dl, dd { margin: 0; padding: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
+
+.wrap { max-width: 68rem; margin: 0 auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+.label { font: 600 0.7rem/1.3 var(--mono); letter-spacing: 0.09em; text-transform: uppercase; color: var(--text-3); }
+
+/* header */
+.top { display: flex; align-items: center; gap: 1.5rem; padding-block: 1.1rem; }
+.brand { display: flex; align-items: center; gap: 0.6rem; font-weight: 700; letter-spacing: -0.01em; text-decoration: none; margin-right: auto; }
+.mark { width: 30px; height: 30px; padding: 5px; background: var(--ink); color: var(--on-ink); border-radius: 4px; }
+.top nav { display: flex; gap: 1.4rem; font-size: 0.9rem; }
+.top nav a { color: var(--text-2); text-decoration: none; }
+.top nav a:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 4px; }
+.btn { display: inline-flex; align-items: center; gap: 0.5rem; min-height: 2.6rem; padding: 0.5rem 1.05rem; border-radius: 6px; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); font: 600 0.92rem var(--sans); text-decoration: none; cursor: pointer; transition: transform 100ms ease-out, border-color 120ms, filter 120ms; }
+.btn:hover { border-color: var(--ink); }
+.btn:active { transform: scale(0.97); }
+.btn.primary { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.btn.primary:hover { filter: brightness(1.15); }
+.btn.small { min-height: 2.1rem; padding: 0.3rem 0.8rem; font-size: 0.85rem; }
+
+/* hero */
+.hero { padding-block: 3.2rem 2.4rem; display: grid; gap: 1.3rem; }
+.hero h1 { font-size: clamp(2.3rem, 6.2vw, 4.4rem); line-height: 1.02; letter-spacing: -0.04em; font-weight: 750; max-width: 15ch; text-wrap: balance; }
+.hero p { font-size: clamp(1.05rem, 1.6vw, 1.22rem); color: var(--text-2); max-width: 38rem; }
+.cta { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.4rem; }
+.cta small { color: var(--text-3); font: 500 0.74rem var(--mono); margin-left: 0.4rem; }
+
+/* demo window */
+.window { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.window-bar { display: flex; align-items: center; gap: 6px; padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.window-bar i { width: 9px; height: 9px; background: var(--surface-3); }
+.window-bar span { margin-left: 0.6rem; }
+.window-bar .live { margin-left: auto; color: var(--green); display: flex; align-items: center; gap: 0.45rem; }
+.window-body { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); }
+.org { padding: 1.6rem 1rem; display: flex; flex-direction: column; align-items: center; border-right: 1px solid var(--line); background: linear-gradient(var(--line) 1px, transparent 1px) 0 0 / 100% 20px, linear-gradient(90deg, var(--line) 1px, transparent 1px) 0 0 / 20px 100%; }
+.node { display: grid; justify-items: center; gap: 0.2rem; width: 7.4rem; padding: 0.7rem 0.4rem 0.6rem; background: var(--surface); border: 1px solid var(--line-strong); border-radius: 6px; text-align: center; transition: border-color 250ms, box-shadow 250ms; }
+.node.live { border-color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.face { width: 40px; height: 40px; background: var(--tile); border-radius: 4px; overflow: hidden; }
+.face.sm { width: 20px; height: 20px; border-radius: 2px; flex: none; }
+.face.lg { width: 60px; height: 60px; }
+.node strong { font-size: 0.84rem; margin-top: 0.3rem; line-height: 1.2; }
+.node .state { font: 600 0.62rem var(--mono); letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-3); display: flex; align-items: center; gap: 0.35rem; min-height: 1rem; }
+.node.live .state { color: var(--green); }
+.dots { display: none; gap: 2px; }
+.live .dots { display: inline-flex; }
+.dots i { width: 4px; height: 4px; background: currentColor; animation: step3 0.9s steps(1) infinite; }
+.dots i:nth-child(2) { animation-delay: 0.3s; }
+.dots i:nth-child(3) { animation-delay: 0.6s; }
+.wire { width: 2px; height: 1.3rem; background: var(--line-strong); }
+.wire.live { background: linear-gradient(var(--green) 50%, transparent 50%) 0 0 / 2px 8px; animation: march 0.5s steps(4) infinite; }
+.devs { display: flex; gap: 0.5rem; padding-top: 1.3rem; position: relative; }
+.devs::before { content: ""; position: absolute; top: 0; left: 3.7rem; right: 3.7rem; border-top: 2px solid var(--line-strong); }
+.devs .node { position: relative; }
+.devs .node::before { content: ""; position: absolute; top: calc(-1.3rem - 1px); left: calc(50% - 1px); width: 2px; height: 1.3rem; background: var(--line-strong); }
+.devs .node.live::before { background: linear-gradient(var(--green) 50%, transparent 50%) 0 0 / 2px 8px; animation: march 0.5s steps(4) infinite; }
+
+.desk { padding: 1.2rem; display: grid; gap: 0.7rem; align-content: start; min-width: 0; }
+.decision { position: relative; border: 1px solid var(--line-strong); border-radius: 8px; padding: 0.9rem 1rem; display: grid; gap: 0.45rem; overflow: hidden; min-height: 10.4rem; transition: opacity 300ms, transform 300ms var(--ease); }
+.decision.gone { opacity: 0; transform: scale(0.97); }
+.decision .who { display: flex; align-items: center; gap: 0.45rem; font-size: 0.76rem; color: var(--text-2); flex-wrap: wrap; }
+.decision .who b { color: var(--ink); }
+.decision h3 { font-size: 1rem; letter-spacing: -0.01em; }
+.decision p { font-size: 0.86rem; color: var(--text-2); }
+.chip { font: 600 0.62rem/1.5 var(--mono); letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid var(--line-strong); border-radius: 3px; padding: 0.05rem 0.35rem; color: var(--text-2); white-space: nowrap; }
+.decision .row { display: flex; gap: 0.45rem; margin-top: 0.2rem; }
+.mini { font: 600 0.8rem var(--sans); padding: 0.32rem 0.7rem; border-radius: 5px; border: 1px solid var(--line-strong); background: var(--surface); transition: transform 120ms; }
+.mini.go { background: var(--green); border-color: var(--green); color: #fff; }
+.mini.no { color: var(--red); }
+.mini.press { transform: scale(0.93); }
+.decision::after { content: ""; position: absolute; inset: 0; background: var(--surface); opacity: 0; transition: opacity 200ms; pointer-events: none; }
+.decision.stamped::after { opacity: 0.8; }
+.stamp { position: absolute; right: 1rem; top: 50%; margin-top: -1rem; z-index: 1; display: none; padding: 0.2rem 0.6rem; border: 2px solid var(--green); color: var(--green); font: 700 0.82rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase; transform: rotate(-8deg); }
+.stamped .stamp { display: block; animation: stamp 320ms var(--ease) both; }
+.lanes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.lane { background: var(--surface-2); border-radius: 6px; padding: 0.5rem; min-height: 6.2rem; display: grid; gap: 0.4rem; align-content: start; }
+.lane > span { display: flex; align-items: center; gap: 0.4rem; }
+.lane > span i { width: 7px; height: 7px; background: var(--c); }
+.ticket { background: var(--surface); border: 1px solid var(--line-strong); border-radius: 5px; padding: 0.4rem 0.5rem; font-size: 0.74rem; font-weight: 600; line-height: 1.25; display: grid; gap: 0.2rem; position: relative; overflow: hidden; }
+.ticket small { font: 600 0.58rem var(--mono); color: var(--text-3); letter-spacing: 0.04em; }
+.ticket.working::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 30%; background: var(--green); transform: translateX(-100%); animation: scan 1.4s steps(14) infinite; }
+
+@keyframes step3 { 0% { opacity: 0.25; } 33% { opacity: 1; } 66%, 100% { opacity: 0.25; } }
+@keyframes march { to { background-position: 0 8px; } }
+@keyframes scan { to { transform: translateX(350%); } }
+@keyframes stamp { 0% { opacity: 0; transform: scale(1.5) rotate(-8deg); } 60% { opacity: 1; transform: scale(0.95) rotate(-8deg); } 100% { opacity: 1; transform: scale(1) rotate(-8deg); } }
+
+/* sections */
+section { padding-block: 4.2rem 0; }
+section > h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); line-height: 1.08; letter-spacing: -0.03em; font-weight: 720; max-width: 22ch; text-wrap: balance; margin-top: 0.7rem; }
+section > .intro { color: var(--text-2); max-width: 40rem; margin-top: 0.8rem; font-size: 1.05rem; }
+
+.flow { list-style: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 2.2rem; border-top: 1px solid var(--line-strong); }
+.flow li { padding: 1.2rem 1.2rem 0 0; display: grid; gap: 0.4rem; align-content: start; }
+.flow li + li { padding-left: 1.2rem; border-left: 1px solid var(--line); }
+.flow .ico { width: 40px; height: 40px; padding: 10px; background: var(--tile); border-radius: 4px; margin: 0.5rem 0 0.3rem; }
+.flow h3 { font-size: 1rem; letter-spacing: -0.01em; }
+.flow p { font-size: 0.9rem; color: var(--text-2); }
+
+.leash { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 2.5rem; margin-top: 2.2rem; align-items: start; }
+.meter { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); padding: 1.2rem; display: grid; gap: 0.7rem; }
+.meter b { font: 700 2.2rem/1 var(--mono); letter-spacing: -0.04em; }
+.meter b .of { font-size: 0.9rem; color: var(--text-2); letter-spacing: 0; font-weight: 600; }
+.cells { display: grid; grid-template-columns: repeat(10, 1fr); gap: 3px; }
+.cells i { height: 16px; background: var(--surface-3); transition: background 250ms; }
+.cells i.on { background: var(--ink); }
+.meter p { font-size: 0.86rem; color: var(--text-2); }
+.brakes { display: grid; border-top: 1px solid var(--line-strong); }
+.brakes div { display: grid; grid-template-columns: 5.5rem 1fr; gap: 1rem; padding: 0.9rem 0; border-bottom: 1px solid var(--line); align-items: baseline; }
+.brakes dt { font: 700 1.05rem var(--mono); letter-spacing: -0.02em; }
+.brakes dd { font-size: 0.93rem; color: var(--text-2); }
+.brakes dd strong { color: var(--ink); font-weight: 650; }
+
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 2.2rem; border-top: 1px solid var(--line-strong); }
+.grid article { padding: 1.3rem 1.3rem 1.4rem 0; border-bottom: 1px solid var(--line); display: grid; gap: 0.4rem; align-content: start; }
+.grid article:not(:nth-child(3n + 1)) { padding-left: 1.3rem; border-left: 1px solid var(--line); }
+.grid .ico { width: 20px; height: 20px; margin-bottom: 0.4rem; }
+.grid h3 { font-size: 1rem; letter-spacing: -0.01em; }
+.grid p { font-size: 0.9rem; color: var(--text-2); }
+
+.staff { display: flex; flex-wrap: wrap; gap: 1.4rem 2rem; margin-top: 2rem; }
+.staff figure { margin: 0; display: grid; gap: 0.5rem; justify-items: start; }
+.staff figcaption { font-size: 0.86rem; font-weight: 650; line-height: 1.25; }
+.staff figcaption span { display: block; font: 500 0.62rem var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); margin-top: 2px; }
+
+.get { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 2.5rem; margin-top: 2.2rem; align-items: start; }
+.term { background: var(--ink); color: var(--on-ink); border-radius: 8px; overflow: hidden; min-width: 0; }
+.term-bar { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.6rem 0.5rem 1rem; border-bottom: 1px solid color-mix(in srgb, var(--on-ink) 18%, transparent); }
+.term-bar .label { color: color-mix(in srgb, var(--on-ink) 60%, transparent); }
+.term-bar button { font: 600 0.7rem var(--mono); text-transform: uppercase; letter-spacing: 0.06em; background: none; color: var(--on-ink); border: 1px solid color-mix(in srgb, var(--on-ink) 35%, transparent); border-radius: 4px; padding: 0.25rem 0.55rem; cursor: pointer; }
+.term-bar button:hover { border-color: var(--on-ink); }
+.term pre { margin: 0; padding: 1rem; font: 0.86rem/1.7 var(--mono); overflow-x: auto; }
+.term pre span { color: color-mix(in srgb, var(--on-ink) 50%, transparent); }
+.needs { list-style: none; display: grid; border-top: 1px solid var(--line-strong); }
+.needs li { padding: 0.85rem 0; border-bottom: 1px solid var(--line); font-size: 0.93rem; color: var(--text-2); }
+.needs li strong { color: var(--ink); font-weight: 650; }
+
+footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-block: 1.6rem 2.4rem; display: flex; flex-wrap: wrap; gap: 0.6rem 2rem; justify-content: space-between; font-size: 0.82rem; color: var(--text-3); }
+
+@media (max-width: 860px) {
+  .top nav { display: none; }
+  .window-body, .leash, .get { grid-template-columns: 1fr; }
+  .org { border-right: 0; border-bottom: 1px solid var(--line); }
+  .flow, .grid { grid-template-columns: 1fr 1fr; }
+  .flow li:nth-child(odd) { padding-left: 0; border-left: 0; }
+  .flow li:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .grid article:not(:nth-child(3n + 1)) { padding-left: 0; border-left: 0; }
+  .grid article:nth-child(even) { padding-left: 1.3rem; border-left: 1px solid var(--line); }
+}
+@media (max-width: 520px) {
+  .hero { padding-block: 2rem 1.6rem; }
+  .flow, .grid { grid-template-columns: 1fr; }
+  .flow li, .flow li + li { padding-left: 0; border-left: 0; }
+  .flow li + li { border-top: 1px solid var(--line); }
+  .grid article:nth-child(even) { padding-left: 0; border-left: 0; }
+  .node { width: 5.6rem; }
+  .devs { gap: 0.3rem; }
+  .devs::before { left: 2.8rem; right: 2.8rem; }
+  .brakes div { grid-template-columns: 4.6rem 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+<!--/page-->
+</head>
+<body>
+<!--page-->
+<header class="wrap top">
+  <a class="brand" href="#top"><span class="mark" data-icon="crown"></span>Agent Corp</a>
+  <nav aria-label="Sections">
+    <a href="#flow">How it works</a>
+    <a href="#budget">Budget</a>
+    <a href="#features">Features</a>
+  </nav>
+  <a class="btn small primary" href="#get">Get it</a>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <span class="label">Agentic workflows on Claude Code, headless</span>
+    <h1>A company of AI agents. You are the CEO.</h1>
+    <p>A project manager reads your repository and proposes work. You approve or reject. Developers build what you approved, and the manager reviews it. Each agent is a headless Claude Code run on your own machine.</p>
+    <div class="cta">
+      <a class="btn primary" href="#get">Get Agent Corp</a>
+      <a class="btn" href="#flow">See how work flows</a>
+      <small>macOS, Windows, Linux</small>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="window" aria-label="Agent Corp, a project overview">
+      <div class="window-bar"><i></i><i></i><i></i><span class="label">Invoice app / Overview</span><span class="label live" id="liveLabel"><span class="dots" style="display:inline-flex"><i></i><i></i><i></i></span><span id="liveText">1 agent working</span></span></div>
+      <div class="window-body">
+        <div class="org">
+          <div class="node"><span class="face" data-face="ceo"></span><strong>You</strong><span class="state">Chief Executive</span></div>
+          <div class="wire" id="wireTop"></div>
+          <div class="node" id="nPm"><span class="face" data-face="pm"></span><strong>Project Manager</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Waiting for you</span></span></div>
+          <div class="wire" id="wireMid"></div>
+          <div class="devs">
+            <div class="node" id="nAda"><span class="face" data-face="dev:Ada"></span><strong>Ada</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div>
+            <div class="node" id="nLinus"><span class="face" data-face="dev:Linus"></span><strong>Linus</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div>
+            <div class="node" id="nGrace"><span class="face" data-face="dev:Grace"></span><strong>Grace</strong><span class="state"><span class="dots"><i></i><i></i><i></i></span><span data-state>Idle</span></span></div>
+          </div>
+        </div>
+        <div class="desk">
+          <span class="label">Waiting for you</span>
+          <div class="decision" id="card">
+            <div class="who"><span class="face sm" data-face="pm"></span><b>Project Manager</b> proposes <span class="chip" id="cardEffort">Small</span></div>
+            <h3 id="cardTitle">Undo for deleted invoices</h3>
+            <p id="cardPitch">A deleted invoice is gone for good today. A 10-second undo saves the support ticket.</p>
+            <div class="row"><span class="mini go" id="approve">Approve</span><span class="mini no">Reject</span></div>
+            <span class="stamp">Approved</span>
+          </div>
+          <span class="label" style="margin-top:.5rem">Board</span>
+          <div class="lanes">
+            <div class="lane" id="lQueued"><span class="label"><i style="--c:var(--text-3)"></i>Queued</span></div>
+            <div class="lane" id="lBuilding"><span class="label"><i style="--c:var(--green)"></i>Building</span><div class="ticket working" id="tRunning"><small>AC-12</small>CSV export for reports</div></div>
+            <div class="lane" id="lShipped"><span class="label"><i style="--c:var(--ink)"></i>Shipped</span><div class="ticket"><small>AC-11</small>Onboarding checklist</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="wrap" id="flow">
+    <span class="label">How work flows</span>
+    <h2>Four steps, and only one of them needs you.</h2>
+    <ol class="flow">
+      <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders a developer can follow without asking questions.</p></li>
+      <li><span class="label">02</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from the Boardroom. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
+      <li><span class="label">03</span><span class="ico" data-icon="terminal"></span><h3>Developers build</h3><p>A free developer picks up the task, edits files in the project folder, runs the tests and commits.</p></li>
+      <li><span class="label">04</span><span class="ico" data-icon="check"></span><h3>The manager reviews</h3><p>It checks the diff against the work order. Work that fails review goes back. A dispute that will not settle comes to you.</p></li>
+    </ol>
+  </section>
+
+  <section class="wrap" id="budget">
+    <span class="label">Human out of the loop</span>
+    <h2>Switch on autopilot. Keep a hand on the brake.</h2>
+    <p class="intro">On autopilot the manager's proposals go straight to the developers. Left alone, agents would run until your Claude limit. Four brakes stop them first.</p>
+    <div class="leash">
+      <div class="meter">
+        <span class="label">Agents' share of your 5-hour window</span>
+        <b><span id="pct">6.0</span>% <span class="of">of 10%</span></b>
+        <div class="cells" id="cells"></div>
+        <p>Claude Code reports how full your subscription window is after each run. Agent Corp reads that number and holds new work once the agents have used their share.</p>
+      </div>
+      <dl class="brakes">
+        <div><dt>10%</dt><dd><strong>Share of the window.</strong> Agents stop after burning this slice of your 5-hour or weekly limit.</dd></div>
+        <div><dt>80%</dt><dd><strong>Ceiling.</strong> Agents stop once the window is this full, your own usage included, so you keep room to work.</dd></div>
+        <div><dt>10 / day</dt><dd><strong>New tasks per project.</strong> The manager stops proposing when the day's quota is used.</dd></div>
+        <div><dt>2 rounds</dt><dd><strong>Review limit.</strong> After two failed reviews the task leaves the loop and lands on your desk.</dd></div>
+      </dl>
+    </div>
+    <p class="intro" style="font-size:.9rem">Those are the defaults. Each one is a setting.</p>
+  </section>
+
+  <section class="wrap" id="features">
+    <span class="label">What else is in the box</span>
+    <h2>Built for running real repositories.</h2>
+    <div class="grid">
+      <article><span class="ico" data-icon="megaphone"></span><h3>Directives</h3><p>Write a task yourself and it skips approval. The next free developer takes it.</p></article>
+      <article><span class="ico" data-icon="archive"></span><h3>Chat archive</h3><p>Past Claude Code sessions on your machine show up on their own. claude.ai chats import from a data export.</p></article>
+      <article><span class="ico" data-icon="handover"></span><h3>Handovers</h3><p>Hand an old chat to a project. Claude compresses it into a brief the team reads before each run.</p></article>
+      <article><span class="ico" data-icon="sliders"></span><h3>Permission allowlist</h3><p>Developers edit files, use git locally and run your test command. Any other shell command is denied.</p></article>
+      <article><span class="ico" data-icon="board"></span><h3>Stays on your machine</h3><p>The server listens on localhost only. Projects, tasks and logs live in one SQLite file in your user folder.</p></article>
+      <article><span class="ico" data-icon="grid"></span><h3>Desktop app</h3><p>One window for macOS, Windows and Linux. The browser version runs from the same code.</p></article>
+    </div>
+  </section>
+
+  <section class="wrap" id="team">
+    <span class="label">Your first hires</span>
+    <h2>Each project gets a manager and up to six developers.</h2>
+    <div class="staff">
+      <figure><span class="face lg" data-face="ceo"></span><figcaption>You<span>Chief Executive</span></figcaption></figure>
+      <figure><span class="face lg" data-face="pm"></span><figcaption>Project Manager<span>Runs the roadmap</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Ada"></span><figcaption>Ada<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Linus"></span><figcaption>Linus<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Grace"></span><figcaption>Grace<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Dennis"></span><figcaption>Dennis<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Barbara"></span><figcaption>Barbara<span>Developer</span></figcaption></figure>
+      <figure><span class="face lg" data-face="dev:Ken"></span><figcaption>Ken<span>Developer</span></figcaption></figure>
+    </div>
+  </section>
+
+  <section class="wrap" id="get">
+    <span class="label">Get it</span>
+    <h2>Three commands to open the Boardroom.</h2>
+    <div class="get">
+      <div class="term">
+        <div class="term-bar"><span class="label">In the project folder</span><button type="button" id="copy">Copy</button></div>
+<pre id="cmd"><span>$</span> npm install
+<span>$</span> npm run app
+<span>#</span> <span>or try it with canned agents, no Claude calls</span>
+<span>$</span> npm run app:demo</pre>
+      </div>
+      <ul class="needs">
+        <li><strong>Node 22.13 or newer.</strong> The server has no other dependencies.</li>
+        <li><strong>Claude Code, logged in.</strong> Agents run as <code>claude -p</code> under your own login, on a Pro or Max plan or an API key.</li>
+        <li><strong>A folder to work in.</strong> Point a project at a repository, or let Agent Corp create an empty git workspace.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="wrap">
+  <span>Agent Corp drives Claude Code. It is an independent project, not made by Anthropic.</span>
+  <span>Pixel art drawn on a 10 by 10 grid.</span>
+</footer>
+
+<script>
+(() => {
+  // Pixel art, same grids as the app (public/pixels.js).
+  const ICONS = {
+    crown: ['..........', '#...##...#', '##..##..##', '###.##.###', '##########', '##########', '##########', '..........', '##########', '..........'],
+    board: ['..######..', '..#....#..', '..#.##.#..', '..#....#..', '..#.##.#..', '..#....#..', '..#.##.#..', '..#....#..', '..#.##.#..', '.########.'],
+    archive: ['..........', '##########', '#........#', '##########', '.#......#.', '.#.####.#.', '.#......#.', '.#......#.', '.########.', '..........'],
+    sliders: ['..........', '......##..', '######..##', '......##..', '..........', '..##......', '##..######', '..##......', '..........', '..........'],
+    check: ['..........', '..........', '........##', '.......##.', '#.....##..', '##...##...', '.##.##....', '..###.....', '...#......', '..........'],
+    handover: ['....##....', '....##....', '....##....', '.#..##..#.', '..#.##.#..', '...####...', '#...##...#', '#........#', '##########', '..........'],
+    megaphone: ['..........', '.......##.', '.....####.', '.########.', '#########.', '#########.', '.########.', '..##.####.', '..##...##.', '..........'],
+    grid: ['..........', '.###..###.', '.###..###.', '.###..###.', '..........', '..........', '.###..###.', '.###..###.', '.###..###.', '..........'],
+    idea: ['..######..', '.#......#.', '#........#', '#........#', '#........#', '.#......#.', '..#....#..', '..######..', '...####...', '...####...'],
+    terminal: ['..........', '##########', '#........#', '#.#......#', '#..#.....#', '#.#......#', '#....###.#', '#........#', '##########', '..........'],
+  };
+  const FACES = {
+    short: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
+    long: ['..hhhhhh..', '.hhhhhhhh.', 'hhhhhhhhhh', 'hhsssssshh', 'hhsesseshh', 'hhsssssshh', 'hhssmmsshh', 'h.ssssss.h', '.cccccccc.', 'cccccccccc'],
+    cap: ['..........', '..cccccc..', '.cccccccc.', 'cccccccccc', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
+    glasses: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.wewsswew.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
+    pm: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.wewsswew.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccwtwcc.', 'ccccwtwccc'],
+    ceo: ['.g..gg..g.', '.gggggggg.', '.gggggggg.', '.hssssssh.', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.kkkwtwkk.', 'kkkkwtwkkk'],
+  };
+  const SKIN = ['#f1c7a1', '#dba779', '#b07a4f', '#7a5236', '#f5d9bd'];
+  const HAIR = ['#2a2019', '#5b3b20', '#a85a1c', '#d2ac58', '#8b8b86', '#b33a2e'];
+  const SHIRT = ['#2f66c9', '#1f8f62', '#d07a26', '#7d55b5', '#bd403a', '#2a8496'];
+  const FIXED = { e: '#1b1a17', m: '#8c3f36', w: '#f4f2ec', t: '#bd403a', g: '#e2b33c', k: '#26252b' };
+  const runs = (rows, cell) => {
+    let d = '';
+    rows.forEach((row, y) => {
+      for (let x = 0; x < row.length; x++) {
+        if (row[x] !== cell) continue;
+        let end = x;
+        while (row[end + 1] === cell) end++;
+        d += `M${x} ${y}h${end - x + 1}v1h-${end - x + 1}z`;
+        x = end;
+      }
+    });
+    return d;
+  };
+  const hash = (text) => {
+    let n = 2166136261;
+    for (const ch of String(text)) n = Math.imul(n ^ ch.codePointAt(0), 16777619);
+    return n >>> 0;
+  };
+  const svg = (inner) => `<svg class="px" viewBox="0 0 10 10" shape-rendering="crispEdges" aria-hidden="true">${inner}</svg>`;
+  for (const el of document.querySelectorAll('[data-icon]')) el.innerHTML = svg(`<path d="${runs(ICONS[el.dataset.icon], '#')}"/>`);
+  for (const el of document.querySelectorAll('[data-face]')) {
+    const [role, name] = el.dataset.face.split(':');
+    const n = hash(name || role);
+    const rows = role === 'ceo' ? FACES.ceo : role === 'pm' ? FACES.pm : [FACES.short, FACES.long, FACES.cap, FACES.glasses][n % 4];
+    const colors = role === 'ceo' ? { h: HAIR[1], s: SKIN[0] } : role === 'pm' ? { h: HAIR[0], s: SKIN[1], c: '#3d4a5c' }
+      : { h: HAIR[(n >>> 3) % HAIR.length], s: SKIN[(n >>> 7) % SKIN.length], c: SHIRT[(n >>> 11) % SHIRT.length] };
+    el.innerHTML = svg([...new Set(rows.join('').replace(/\./g, ''))].map((c) => `<path d="${runs(rows, c)}" fill="${colors[c] || FIXED[c]}"/>`).join(''));
+  }
+
+  // Budget cells.
+  const cells = document.getElementById('cells');
+  cells.innerHTML = '<i></i>'.repeat(10);
+  const setBudget = (pct) => {
+    document.getElementById('pct').textContent = pct.toFixed(1);
+    [...cells.children].forEach((c, i) => c.classList.toggle('on', i < Math.round(pct)));
+  };
+  setBudget(6);
+
+  // Copy the commands.
+  const copy = document.getElementById('copy');
+  copy.addEventListener('click', async () => {
+    const text = 'npm install\nnpm run app';
+    try {
+      await navigator.clipboard.writeText(text);
+      copy.textContent = 'Copied';
+    } catch {
+      getSelection().selectAllChildren(document.getElementById('cmd'));
+      copy.textContent = 'Selected';
+    }
+    setTimeout(() => (copy.textContent = 'Copy'), 1800);
+  });
+
+  // The hero demo: one proposal travels from the manager's desk to Shipped, then the next one arrives.
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const $ = (id) => document.getElementById(id);
+  const proposals = [
+    ['Undo for deleted invoices', 'A deleted invoice is gone for good today. A 10-second undo saves the support ticket.', 'Small'],
+    ['Keyboard shortcuts for the editor', 'Freelancers enter dozens of line items. N for a new line and Tab between fields cut that time.', 'Medium'],
+    ['Late-payment reminders', 'One email on the due date and one a week later. Users ask for this in most feedback notes.', 'Large'],
+  ];
+  const state = (node, text, live) => {
+    $(node).classList.toggle('live', Boolean(live));
+    $(node).querySelector('[data-state]').textContent = text;
+  };
+  const move = (el, lane) => {
+    const from = el.getBoundingClientRect();
+    $(lane).append(el);
+    const to = el.getBoundingClientRect();
+    el.animate([{ transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)` }, { transform: 'none' }], { duration: 520, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+  };
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  let round = 0;
+  let id = 13;
+  let budget = 6;
+  let visible = true;
+  new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(document.querySelector('.window'));
+
+  (async function loop() {
+    for (;;) {
+      await wait(2600);
+      while (!visible || document.hidden) await wait(500);
+      const [title] = proposals[round % proposals.length];
+      // You approve.
+      $('approve').classList.add('press');
+      await wait(160);
+      $('approve').classList.remove('press');
+      $('card').classList.add('stamped');
+      await wait(900);
+      $('card').classList.add('gone');
+      // The manager hands the task to Ada.
+      const ticket = Object.assign(document.createElement('div'), { className: 'ticket', innerHTML: `<small>AC-${id++}</small>${title}` });
+      $('lQueued').append(ticket);
+      ticket.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 300 });
+      state('nPm', 'Idle');
+      await wait(900);
+      move(ticket, 'lBuilding');
+      ticket.classList.add('working');
+      state('nAda', 'Building', true);
+      $('wireMid').classList.add('live');
+      $('liveText').textContent = '2 agents working';
+      await wait(2800);
+      // Review.
+      state('nAda', 'Idle');
+      state('nPm', 'Reviewing', true);
+      $('wireMid').classList.remove('live');
+      $('wireTop').classList.add('live');
+      await wait(1900);
+      const done = $('lShipped').querySelector('.ticket');
+      move(ticket, 'lShipped');
+      ticket.classList.remove('working');
+      if ($('lShipped').querySelectorAll('.ticket').length > 2) done.remove();
+      budget = budget >= 9.4 ? 2.4 : budget + 0.6;
+      setBudget(budget);
+      // The next proposal.
+      state('nPm', 'Drafting', true);
+      await wait(1700);
+      round++;
+      const next = proposals[round % proposals.length];
+      $('cardTitle').textContent = next[0];
+      $('cardPitch').textContent = next[1];
+      $('cardEffort').textContent = next[2];
+      $('card').classList.remove('stamped', 'gone');
+      state('nPm', 'Waiting for you');
+      $('wireTop').classList.remove('live');
+      $('liveText').textContent = '1 agent working';
+    }
+  })();
+})();
+</script>
+<!--/page-->
+</body>
+</html>

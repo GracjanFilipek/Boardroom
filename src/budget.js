@@ -24,7 +24,7 @@ export function createBudget(db, now = () => Date.now()) {
       if (patch[key] !== undefined) next[key] = clamp(Number(patch[key]) || 0, 0, 100);
     }
     if (patch.dailyUsd !== undefined) next.dailyUsd = Math.max(0, Number(patch.dailyUsd) || 0);
-    if (patch.maxParallel !== undefined) next.maxParallel = clamp(Math.round(Number(patch.maxParallel) || 1), 1, 8);
+    if (patch.maxParallel !== undefined) next.maxParallel = clamp(Math.round(Number(patch.maxParallel) || 1), 1, 16);
     db.setSetting('budget', next);
     return next;
   }

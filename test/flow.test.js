@@ -257,7 +257,7 @@ test('a refused command stops the developer, asks the CEO, and the same session 
   assert.match(runs[1].tools, /Bash\(python3 \*\)$/);
   requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending'");
   assert.deepEqual(requests.map((r) => r.rule), ['Bash(docker exec *)']);
-  orch.decidePermission(requests[0].id, true);
+  assert.equal(orch.allowAll(id), 1, 'Allow all answers every open request');
 
   await until(() => db.get('SELECT status FROM tasks').status === 'done');
   assert.equal(runs.length, 3, 'the command the CEO refused did not stop the third run');
@@ -318,10 +318,16 @@ test('Booardroom creates the repository, signs commits as the account and pushes
   process.env.GIT_CONFIG_SYSTEM = '/dev/null';
   const remote = tmp();
   execFileSync('git', ['init', '-q', '--bare', remote]);
+  // Pushes to the GitHub address land in the local stand-in.
+  process.env.GIT_CONFIG_COUNT = '1';
+  process.env.GIT_CONFIG_KEY_0 = `url.${remote}.insteadOf`;
+  process.env.GIT_CONFIG_VALUE_0 = 'https://github.com/ceo/shop.git';
   const calls = [];
+  let gone = false;
   const fetchImpl = async (url, init) => {
     calls.push(`${init.method} ${new URL(url).pathname}`);
-    const body = url.endsWith('/user') ? { login: 'ceo', id: 7, name: 'The CEO' } : { clone_url: remote, html_url: 'https://github.com/ceo/shop' };
+    if (init.method === 'GET' && url.includes('/repos/')) return { ok: !gone, status: gone ? 404 : 200, json: async () => (gone ? { message: 'Not Found' } : {}) };
+    const body = url.endsWith('/user') ? { login: 'ceo', id: 7, name: 'The CEO' } : { clone_url: 'https://github.com/ceo/shop.git', html_url: 'https://github.com/ceo/shop' };
     return { ok: true, status: 200, json: async () => body };
   };
   const dataDir = tmp();
@@ -347,7 +353,7 @@ test('Booardroom creates the repository, signs commits as the account and pushes
     const { id } = await post('/api/projects', { name: 'Shop', devs: 1 });
     const workdir = db.get('SELECT workdir FROM projects').workdir;
     assert.equal((await post(`/api/projects/${id}/github/create`, { name: 'shop' })).url, 'https://github.com/ceo/shop');
-    assert.deepEqual(calls, ['GET /user', 'POST /user/repos']);
+    assert.ok(calls.includes('GET /user') && calls.includes('POST /user/repos'));
     assert.equal(execFileSync('git', ['config', '--local', 'user.email'], { cwd: workdir }).toString().trim(), '7+ceo@users.noreply.github.com');
 
     orch.addDirective(id, { title: 'Ship the feature' });
@@ -355,10 +361,34 @@ test('Booardroom creates the repository, signs commits as the account and pushes
     await until(() => db.get("SELECT COUNT(*) AS n FROM events WHERE text LIKE 'Booardroom pushed%'").n === 1);
     assert.match(execFileSync('git', ['log', '--format=%an <%ae> %s', '--all'], { cwd: remote }).toString(), /The CEO <7\+ceo@users\.noreply\.github\.com> Add feature/);
     assert.equal(seen[0].token, 'secret-token', 'agents get the account in their environment');
+
+    // The repository is deleted on GitHub. The folder still points at it; Booardroom notices and replaces it.
+    gone = true;
+    await new Promise((r) => setTimeout(r, 0));
+    const fresh = createApp({ dataDir, runner, mock: true, configDir: tmp(), github: { fetchImpl, useCli: false } });
+    try {
+      assert.equal((await fresh.github.status(workdir)).missing, true);
+      assert.equal((await fresh.github.push(workdir)).ok, false);
+      gone = false;
+      const again = await fresh.github.createRepo(workdir, { name: 'shop-2' });
+      assert.equal(again.url, 'https://github.com/ceo/shop');
+      assert.equal((await fresh.github.status(workdir)).missing, false);
+    } finally {
+      fresh.close();
+    }
     assert.match(seen[0].prompt, /Booardroom pushes approved work there by itself/);
   } finally {
     app.close();
     delete process.env.GIT_CONFIG_GLOBAL;
     delete process.env.GIT_CONFIG_SYSTEM;
+    for (const key of ['GIT_CONFIG_COUNT', 'GIT_CONFIG_KEY_0', 'GIT_CONFIG_VALUE_0']) delete process.env[key];
   }
+});
+
+test('a project can staff twelve developers', () => {
+  const { db, orch, close } = company();
+  const id = orch.createProject({ name: 'Big', devs: 40 });
+  assert.equal(db.get("SELECT COUNT(*) AS n FROM agents WHERE project_id = ? AND role = 'dev'", id).n, 12);
+  assert.equal(new Set(db.all("SELECT name FROM agents WHERE project_id = ?", id).map((a) => a.name)).size, 14, 'manager, designer and twelve distinct developers');
+  close();
 });

@@ -4,7 +4,7 @@ A company of headless Claude agents. You are the CEO.
 
 Bring a repository or one rough sentence. The project manager does the thinking: it reads the code, forms its own view of what the product needs, and keeps proposing work for as long as the project runs. That is the centre of this project.
 
-Each project gets a project manager, a designer and a team of developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
+Each project gets a project manager, a designer and a team of up to twelve developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
 
 ![The Desk: decisions waiting for the CEO, live agent activity, projects](docs/desk.png)
 
@@ -122,7 +122,7 @@ Developers get **the same permissions you give Claude Code**. Before each run Bo
 
 On top of that each project has its own list. It starts with file tools, local git (status, diff, log, add, commit), `npm test` and `npm run`. In project settings you add commands such as `python3`, `docker` or `curl` with one press.
 
-When a developer reaches a command it may not run, it **stops on the spot**. A request lands on your Desk: "Ada stopped and is waiting for you. Allow python3?" Allow it or keep it blocked. Once every request from that task is answered, the same developer continues the same session, knowing what you decided. A command you refused does not stop the team again; the developer works without it and says so in the report. While one task waits, the developer is free for other work.
+When a developer reaches a command it may not run, it **stops on the spot**. A request lands on your Desk: "Ada stopped and is waiting for you. Allow python3?" Allow it, keep it blocked, or press **Allow all** to answer every open request at once. Once every request from that task is answered, the same developer continues the same session, knowing what you decided. A command you refused does not stop the team again; the developer works without it and says so in the report. While one task waits, the developer is free for other work.
 
 To keep a project strict, switch its settings to "Only the list below". "Skip all permission checks" maps to `--dangerously-skip-permissions`; use it inside a container or VM.
 
@@ -133,6 +133,7 @@ Several developers share one working tree. They are told to stage only their own
 Agents do not sign in to GitHub and do not push. Booardroom holds your account and does both itself, which is why a developer can no longer get stuck on authentication.
 
 - **Connect once.** Open **GitHub** in the sidebar. If the GitHub CLI is logged in on your machine (`gh auth login`), Booardroom uses that sign-in and stores nothing. Otherwise paste a personal access token with the `repo` scope; it is kept in Booardroom's local database, in plain text, on your computer.
+- **A deleted repository is noticed.** If you delete a repository on GitHub, the project folder still points at it. Booardroom checks, tells you the repository is gone, and offers to create a new one or unlink the old address.
 - **Create the repository with one press.** A project whose folder has no remote shows "Not on GitHub yet" with a Create repository button (private by default), or link one that exists. A folder that is not a git repository gets a "Set up git here" button first.
 - **Approved work is pushed for you.** When the manager approves a task, or you accept one, Booardroom pushes the branch. Switch this off per project in settings. "Push now" on the project page pushes on demand.
 - **Commits carry your name.** Booardroom sets the commit author for the project folder to your GitHub name and private GitHub address, unless the folder or your machine already names an author.

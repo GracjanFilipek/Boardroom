@@ -99,12 +99,38 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
 
   const git = async (workdir, args, auth = false) => run('git', args, { cwd: workdir, env: { ...process.env, ...(auth ? await env() : {}) } });
 
-  /** Where a project folder stands: is it a repository, where does origin point, is there anything to push. */
+  // Does a repository still exist on GitHub? Asked at most once a minute per repository.
+  const existence = new Map();
+  async function exists(slug) {
+    const hit = existence.get(slug);
+    if (hit && Date.now() - hit.at < 60_000) return hit.value;
+    let value = true; // when GitHub cannot be asked, assume it is there
+    try {
+      await api('GET', `/repos/${slug}`);
+    } catch (err) {
+      if (err.status === 404) value = false;
+    }
+    existence.set(slug, { at: Date.now(), value });
+    return value;
+  }
+
+  /**
+   * Where a project folder stands: is it a repository, where does origin point, and is that
+   * repository still on GitHub. A folder keeps its old address after the repository is deleted,
+   * so `missing` says when the address leads nowhere.
+   */
   async function status(workdir) {
     if (!fs.existsSync(path.join(workdir, '.git'))) return { isGit: false, remote: null, web: null };
-    const remote = (await git(workdir, ['remote', 'get-url', 'origin'])).out || null;
-    const web = remote?.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1] ?? null;
-    return { isGit: true, remote, web: web ? `https://github.com/${web}` : null, slug: web };
+    // The address as written in the folder's config, before any URL rewriting on this machine.
+    const remote = (await git(workdir, ['config', '--get', 'remote.origin.url'])).out || null;
+    const slug = remote?.match(/github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/)?.[1] ?? null;
+    const missing = Boolean(slug && (await token()).token && !(await exists(slug)));
+    return { isGit: true, remote, web: slug ? `https://github.com/${slug}` : null, slug, missing };
+  }
+
+  /** Forgets the folder's GitHub address, for example after the repository was deleted. */
+  async function unlink(workdir) {
+    await git(workdir, ['remote', 'remove', 'origin']);
   }
 
   /** Commits made in this folder carry the account's name, unless the folder or machine already names someone. */
@@ -120,6 +146,7 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
   async function push(workdir) {
     const st = await status(workdir);
     if (!st.remote) return { ok: false, skipped: true, error: 'This project has no GitHub repository yet.' };
+    if (st.missing) return { ok: false, error: `The repository ${st.slug} no longer exists on GitHub. Create a new one on the project page.` };
     if (!(await git(workdir, ['rev-parse', '--verify', 'HEAD'])).ok) return { ok: false, skipped: true, error: 'Nothing is committed yet.' };
     const res = await git(workdir, ['push', '-u', 'origin', 'HEAD'], true);
     return res.ok ? { ok: true, web: st.web } : { ok: false, error: res.err.split('\n').filter(Boolean).slice(-3).join(' ') || 'git push failed.' };
@@ -130,9 +157,13 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
     const clean = String(name || '').trim().replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '');
     if (!clean) throw new Error('Give the repository a name.');
     if (!fs.existsSync(path.join(workdir, '.git')) && !(await git(workdir, ['init', '-q'])).ok) throw new Error('git init failed. Is git installed?');
-    if ((await status(workdir)).remote) throw new Error('This folder already points at a repository.');
+    const now = await status(workdir);
+    // An address left over from a deleted repository is replaced. A live one is never overwritten here.
+    if (now.remote && now.missing) await unlink(workdir);
+    else if (now.remote) throw new Error(`This folder already points at ${now.slug ?? now.remote}. Unlink it first.`);
     const repo = await api('POST', '/user/repos', { name: clean, private: Boolean(isPrivate), description: String(description).slice(0, 300) });
     await git(workdir, ['remote', 'add', 'origin', repo.clone_url]);
+    existence.clear();
     await setIdentity(workdir);
     const pushed = await push(workdir);
     return { url: repo.html_url, pushed: pushed.ok, note: pushed.ok || pushed.skipped ? null : pushed.error };
@@ -147,8 +178,9 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
     const has = (await status(workdir)).remote;
     await git(workdir, has ? ['remote', 'set-url', 'origin', `https://github.com/${slug}.git`] : ['remote', 'add', 'origin', `https://github.com/${slug}.git`]);
     await setIdentity(workdir);
+    existence.clear();
     return { url: `https://github.com/${slug}` };
   }
 
-  return { account, connect, disconnect, env, status, setIdentity, push, createRepo, link };
+  return { account, connect, disconnect, env, status, setIdentity, push, createRepo, link, unlink };
 }

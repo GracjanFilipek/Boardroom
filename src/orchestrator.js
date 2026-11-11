@@ -11,7 +11,7 @@ const PM_READ_TOOLS = 'Read,Glob,Grep';
 const DESIGNER_TOOLS = 'Read,Glob,Grep,Skill';
 const PM_REVIEW_ALLOWED = 'Read,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *)';
 const OPEN = ['queued', 'in_progress', 'blocked', 'review', 'changes', 'escalated'];
-const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken'];
+const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken', 'Margaret', 'Alan', 'Edsger', 'Radia', 'Donald', 'Katherine'];
 const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
 
 export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir, github, now = () => Date.now() }) {
@@ -24,7 +24,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
 
   // Where each project lives on GitHub, refreshed in the background so prompts can name it.
   const repos = new Map();
-  const refreshRepo = (project) => github?.status(project.workdir).then((st) => repos.set(project.id, st.web ?? st.remote)).catch(() => {});
+  const refreshRepo = (project) => github?.status(project.workdir).then((st) => repos.set(project.id, st.missing ? null : st.web ?? st.remote)).catch(() => {});
   const seen = (project) => ({ ...project, repo: repos.get(project.id) ?? null });
 
   /** Sends approved work to GitHub. Booardroom does this itself, so no agent needs push rights. */
@@ -134,6 +134,15 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     }
     bus.emit('change', { projectId: req.project_id });
     tick();
+  }
+
+  /** Answers every open permission request at once, for one project or the whole company. */
+  function allowAll(projectId) {
+    const open = projectId
+      ? db.all("SELECT id FROM permission_requests WHERE status = 'pending' AND project_id = ? ORDER BY id", projectId)
+      : db.all("SELECT id FROM permission_requests WHERE status = 'pending' ORDER BY id");
+    for (const req of open) decidePermission(req.id, true);
+    return open.length;
   }
 
   // ---- projects ---------------------------------------------------------
@@ -655,7 +664,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
   return {
     createProject, updateProject, setStatus, deleteProject,
     publish, refreshRepo,
-    decideIdea, addDirective, ruleTask, summarize, tell, decidePermission, addRules, toolsOf, ownTools, inherited, modeOf,
+    decideIdea, addDirective, ruleTask, summarize, tell, decidePermission, allowAll, addRules, toolsOf, ownTools, inherited, modeOf,
     tick, recover,
     busy: () => busy,
   };

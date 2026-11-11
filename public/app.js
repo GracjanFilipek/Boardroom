@@ -300,7 +300,7 @@ function boardView() {
       h('div', { class: 'stat' }, h('div', { class: 'tile' }, icon('gauge')), h('b', null, num(budget.today.usd, 'usd')), h('span', null, `${budget.today.runs} runs today, API prices`))),
     h('div', { class: 'split' },
       h('div', null,
-        h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', inbox.length ? h('span', { class: 'count hot' }, String(inbox.length)) : null)),
+        h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', inbox.length ? h('span', { class: 'count hot' }, String(inbox.length)) : null), allowAllButton(inbox.filter((i) => i.kind === 'permission').length)),
         inbox.length
           ? h('div', { class: 'stack' }, inbox.map((item, i) => (item.kind === 'idea' ? ideaCard(item, true, i) : item.kind === 'permission' ? permissionCard(item, true, i) : attentionCard(item, true, i))))
           : empty('check', 'Your desk is clear', 'Proposals and escalated tasks land here.')),
@@ -362,6 +362,15 @@ function rejectSheet(idea) {
       h('button', { class: 'btn bad', onclick: () => { sheet.close(); decide(idea, false, input.value); } }, 'Reject'),
     ],
   });
+}
+
+/** One press for every open permission request in view. */
+function allowAllButton(count, projectId) {
+  if (!count) return null;
+  return h('button', { class: 'btn go', onclick: () => act(async () => {
+    const res = await api('POST', '/api/permissions/allow-all', { projectId });
+    toast(`Allowed ${res.allowed} ${res.allowed === 1 ? 'command' : 'commands'}. The developers continue.`, 'check');
+  }) }, icon('check'), 'Allow all');
 }
 
 /** A developer hit a command it may not run. One press lets the whole team use it on this project. */
@@ -474,7 +483,7 @@ function projectView(r) {
             h('span', { class: `chip ${active ? 'green' : ''}` }, h('span', { class: `dot ${active ? (summary.working ? 'busy' : 'on') : ''}` }), active ? 'Running' : 'Paused'),
             h('span', null, num(spend.runs), ' runs'),
             h('span', null, num(spend.usd, 'usd'), ' at API prices'),
-            repo.web ? h('a', { class: 'chip', href: repo.web, target: '_blank', rel: 'noopener' }, repo.slug) : null))),
+            repo.web && !repo.missing ? h('a', { class: 'chip', href: repo.web, target: '_blank', rel: 'noopener' }, repo.slug) : null))),
       h('div', { class: 'actions' },
         active
           ? h('button', { class: 'btn', onclick: () => act(() => api('POST', `/api/projects/${p.id}/pause`)) }, icon('pause'), 'Pause')
@@ -485,6 +494,11 @@ function projectView(r) {
     holdBanner(),
     p.is_git ? null : h('div', { class: 'banner' }, icon('alert'), h('div', { style: 'flex:1' }, h('strong', null, 'This folder is not a git repository. '), 'Developers cannot commit their work, and the manager cannot review a diff.'),
       h('button', { class: 'btn small', onclick: () => act(() => api('POST', `/api/projects/${p.id}/git-init`)) }, 'Set up git here')),
+    repo.missing
+      ? h('div', { class: 'banner' }, icon('alert'), h('div', { style: 'flex:1' }, h('strong', null, `${repo.slug} no longer exists on GitHub. `), 'This folder still points at it, so nothing can be pushed.'),
+          h('button', { class: 'btn small', onclick: () => repoSheet(p) }, 'Create a new one'),
+          h('button', { class: 'btn small', onclick: () => act(() => api('POST', `/api/projects/${p.id}/github/unlink`)) }, 'Unlink'))
+      : null,
     p.is_git && !repo.remote
       ? h('div', { class: 'banner plain' }, icon('handover'), h('div', { style: 'flex:1' }, h('strong', null, 'Not on GitHub yet. '), github?.login ? `Create a repository under ${github.login} and Booardroom pushes approved work there.` : 'Connect your GitHub account and Booardroom can create the repository and push approved work.'),
           github?.login
@@ -604,10 +618,19 @@ function projectView(r) {
             node('pm', pm.name, 'Runs the roadmap', pm),
             designer ? h('div', { class: 'org-side' }, h('div', { class: `hwire${designer.job ? ' live' : ''}` }), node('designer', designer.name, 'Designs with the manager', designer)) : h('div')),
           h('div', { class: `wire${devs.some((d) => d.job) ? ' live' : ''}` }),
-          h('div', { class: 'org-children' }, devs.map((d) => h('div', { class: `org-child${d.job ? ' live' : ''}` }, node('dev', d.name, 'Developer', d))))))),
+          devs.length > 6
+            // A big team no longer fits one row: compact tiles in a grid under one rail.
+            ? h('div', { class: 'org-team' }, devs.map((d) => {
+                const working = d.job?.kind === 'build';
+                return h('div', { class: `node mini${working ? ' live' : ''}`, title: working ? `Building “${taskTitle(d.job.taskId)}”` : '' },
+                  avatar('dev', 'sm', working, d.name),
+                  h('strong', null, d.name),
+                  h('span', { class: 'doing' }, working ? [typing(), h('span', { 'data-since': String(d.job.since) }, elapsed(d.job.since))] : active ? 'Idle' : 'Off'));
+              }))
+            : h('div', { class: 'org-children' }, devs.map((d) => h('div', { class: `org-child${d.job ? ' live' : ''}` }, node('dev', d.name, 'Developer', d))))))),
       h('div', { class: 'split' },
         h('div', null,
-          h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length + permissions.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length + permissions.length)) : null)),
+          h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length + permissions.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length + permissions.length)) : null), allowAllButton(permissions.length, p.id)),
           proposed.length + attention.length + permissions.length
             ? h('div', { class: 'stack' }, permissions.map((r, i) => permissionCard(r, false, i)), attention.map((t, i) => attentionCard(t, false, i)), proposed.map((idea, i) => ideaCard(idea, false, i)))
             : inDesign.length
@@ -621,7 +644,7 @@ function projectView(r) {
       h('div', { class: 'actions', style: 'margin-top:2rem' },
         h('span', { class: 'small muted mono', style: 'min-width:0;overflow-wrap:anywhere' }, p.workdir),
         h('button', { class: 'btn quiet', onclick: () => revealFolder(p) }, icon('archive'), FILES_APP ? `Show in ${FILES_APP}` : 'Open folder'),
-        repo.remote ? h('button', { class: 'btn quiet', onclick: () => act(async () => { await api('POST', `/api/projects/${p.id}/github/push`); toast('Pushed to GitHub.', 'check'); }) }, icon('handover'), 'Push now') : null));
+        repo.remote && !repo.missing ? h('button', { class: 'btn quiet', onclick: () => act(async () => { await api('POST', `/api/projects/${p.id}/github/push`); toast('Pushed to GitHub.', 'check'); }) }, icon('handover'), 'Push now') : null));
   }
   return h('div', { 'data-view': `project-${p.id}-${r.tab}` }, header, body);
 }
@@ -776,7 +799,7 @@ function projectForm(p, devCount = 2) {
       h('small', null, 'An existing repository on this machine. Leave empty and Booardroom creates a fresh git workspace.')),
     h('div', { class: 'row2' },
       h('label', { class: 'field' }, h('span', null, 'Who approves proposals'), select('approval', [['ceo', 'You approve each one'], ['auto', 'Autopilot, no approval']], v.approval)),
-      h('label', { class: 'field' }, h('span', null, 'Developers'), select('devs', [1, 2, 3, 4, 5, 6].map((n) => [n, String(n)]), devCount))),
+      h('label', { class: 'field' }, h('span', null, 'Developers'), select('devs', Array.from({ length: 12 }, (_, i) => [i + 1, String(i + 1)]), devCount))),
     h('h3', null, 'Limits'),
     h('div', { class: 'row2' },
       h('label', { class: 'field' }, h('span', null, 'Proposals per round'), number('ideas_per_round', v.ideas_per_round, 1, 8)),
@@ -876,7 +899,7 @@ function budgetSheet() {
       h('label', { class: 'field' }, h('span', null, 'Agents’ share, %'), number('sharePct', c.sharePct, 100), h('small', null, 'Agents stop after burning this slice of the window. 0 turns it off.')),
       h('label', { class: 'field' }, h('span', null, 'Ceiling, %'), number('ceilingPct', c.ceilingPct, 100), h('small', null, 'Agents stop once the window is this full, your own usage included.')),
       h('label', { class: 'field' }, h('span', null, 'Daily cap, USD at API prices'), number('dailyUsd', c.dailyUsd, 10000, 0.5), h('small', null, '0 turns it off.')),
-      h('label', { class: 'field' }, h('span', null, 'Runs in parallel'), number('maxParallel', c.maxParallel, 8))));
+      h('label', { class: 'field' }, h('span', null, 'Runs in parallel'), number('maxParallel', c.maxParallel, 16), h('small', null, 'How many agents may work at the same moment, across all projects. A team of twelve needs more than the default two.'))));
   const submit = () => {
     sheet.close();
     act(() => api('PUT', '/api/budget', Object.fromEntries(new FormData(form))));

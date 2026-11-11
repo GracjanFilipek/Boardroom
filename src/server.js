@@ -103,6 +103,7 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
     ['POST', /^\/api\/projects\/(\d+)\/messages$/, ({ m, body }) => ({ id: orch.tell(+m[1], body.text) })],
     ['POST', /^\/api\/projects\/(\d+)\/directives$/, ({ m, body }) => orch.addDirective(+m[1], body)],
     ['POST', /^\/api\/ideas\/(\d+)\/(approve|reject)$/, ({ m, body }) => orch.decideIdea(+m[1], m[2] === 'approve', 'ceo', String(body.reason || '').slice(0, 500))],
+    ['POST', /^\/api\/permissions\/allow-all$/, ({ body }) => ({ allowed: orch.allowAll(body.projectId ? Number(body.projectId) : null) })],
     ['POST', /^\/api\/permissions\/(\d+)\/(allow|ignore)$/, ({ m }) => orch.decidePermission(+m[1], m[2] === 'allow')],
     ['POST', /^\/api\/projects\/(\d+)\/git-init$/, ({ m }) => {
       const project = db.get('SELECT workdir FROM projects WHERE id = ?', +m[1]);
@@ -117,17 +118,21 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
     ['GET', /^\/api\/github$/, async () => ({ account: await github.account() })],
     ['POST', /^\/api\/github\/connect$/, async ({ body }) => ({ account: await github.connect(body.token) })],
     ['DELETE', /^\/api\/github$/, () => github.disconnect()],
-    ['POST', /^\/api\/projects\/(\d+)\/github\/(create|link|push)$/, async ({ m, body }) => {
+    ['POST', /^\/api\/projects\/(\d+)\/github\/(create|link|push|unlink)$/, async ({ m, body }) => {
       const project = db.get('SELECT * FROM projects WHERE id = ?', +m[1]);
       if (!project) throw httpError(404, 'Project not found.');
       let out;
       if (m[2] === 'create') out = await github.createRepo(project.workdir, { name: body.name || project.name, isPrivate: body.private !== false && body.private !== 'false', description: project.brief.split('\n')[0] });
       else if (m[2] === 'link') out = await github.link(project.workdir, body.url);
+      else if (m[2] === 'unlink') {
+        await github.unlink(project.workdir);
+        out = { ok: true };
+      }
       else {
         out = await orch.publish(project.id, 'the current work');
         if (!out.ok) throw httpError(502, out.error || 'Nothing to push.');
       }
-      if (m[2] !== 'push') db.insert('events', { project_id: project.id, type: 'ceo', text: `The CEO connected the project to ${out.url}.`, ts: Date.now() });
+      if (m[2] === 'create' || m[2] === 'link') db.insert('events', { project_id: project.id, type: 'ceo', text: `The CEO connected the project to ${out.url}.`, ts: Date.now() });
       await orch.refreshRepo(project);
       bus.emit('change', { projectId: project.id });
       return out;
@@ -250,7 +255,7 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
   const server = http.createServer(handle);
   const interval = setInterval(() => orch.tick(), 5000);
   interval.unref();
-  return { server, db, orch, budget, history, bus, close: () => (clearInterval(interval), server.close(), server.closeAllConnections?.()) };
+  return { server, db, orch, budget, history, github, bus, close: () => (clearInterval(interval), server.close(), server.closeAllConnections?.()) };
 }
 
 function send(res, status, body) {

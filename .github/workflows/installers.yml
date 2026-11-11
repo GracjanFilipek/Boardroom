@@ -36,7 +36,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
       - uses: actions/upload-artifact@v4
         with:
-          name: boardroom-${{ matrix.os }}
+          name: booardroom-${{ matrix.os }}
           path: |
             release/*.exe
             release/*.dmg

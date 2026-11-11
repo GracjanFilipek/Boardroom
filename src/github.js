@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 /**
- * GitHub for the company. Boardroom holds the account, creates repositories and pushes approved
+ * GitHub for the company. Booardroom holds the account, creates repositories and pushes approved
  * work itself, so agents never need to authenticate or to be trusted with a push.
  *
  * The account comes from the GitHub CLI when it is logged in (`gh auth token`), otherwise from a
@@ -34,7 +34,7 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
     if (!tok) throw new Error('GitHub is not connected.');
     const res = await fetchImpl(apiBase + route, {
       method,
-      headers: { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'boardroom', ...(body ? { 'Content-Type': 'application/json' } : {}) },
+      headers: { Authorization: `Bearer ${tok}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'booardroom', ...(body ? { 'Content-Type': 'application/json' } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await res.json().catch(() => ({}));
@@ -85,7 +85,7 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
     if (!tok) return {};
     const n = Number(process.env.GIT_CONFIG_COUNT) || 0;
     return {
-      BOARDROOM_GH_TOKEN: tok,
+      BOOARDROOM_GH_TOKEN: tok,
       GH_TOKEN: tok,
       GIT_TERMINAL_PROMPT: '0',
       GIT_CONFIG_COUNT: String(n + 2),
@@ -93,7 +93,7 @@ export function createGitHub(db, { fetchImpl = fetch, apiBase = 'https://api.git
       [`GIT_CONFIG_KEY_${n}`]: 'credential.https://github.com.helper',
       [`GIT_CONFIG_VALUE_${n}`]: '',
       [`GIT_CONFIG_KEY_${n + 1}`]: 'credential.https://github.com.helper',
-      [`GIT_CONFIG_VALUE_${n + 1}`]: '!f() { echo username=x-access-token; echo "password=$BOARDROOM_GH_TOKEN"; }; f',
+      [`GIT_CONFIG_VALUE_${n + 1}`]: '!f() { echo username=x-access-token; echo "password=$BOOARDROOM_GH_TOKEN"; }; f',
     };
   }
 

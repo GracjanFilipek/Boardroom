@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <!--page-->
-<title>Boardroom</title>
+<title>Booardroom</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Crect width='16' height='16' fill='%2317160f'/%3E%3Cpath d='M3 4h1v1h-1zM7 4h2v1h-2zM12 4h1v1h-1zM3 5h2v1h-2zM7 5h2v1h-2zM11 5h2v1h-2zM3 6h3v1h-3zM7 6h2v1h-2zM10 6h3v1h-3zM3 7h10v1h-10zM3 8h10v1h-10zM3 9h10v1h-10zM3 11h10v1h-10z' fill='%23fffefb'/%3E%3C/svg%3E">
-<meta property="og:title" content="Boardroom">
+<meta property="og:title" content="Booardroom">
 <meta property="og:description" content="Give an AI project manager a rough idea. It works out the rest and runs a team of AI developers.">
 <meta property="og:type" content="website">
 <meta name="description" content="Give an AI project manager a repository or a rough idea. It decides what to build and keeps handing work to AI developers running on Claude Code.">
@@ -136,6 +136,26 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 @keyframes scan { to { transform: translateX(350%); } }
 @keyframes stamp { 0% { opacity: 0; transform: scale(1.5) rotate(-8deg); } 60% { opacity: 1; transform: scale(0.95) rotate(-8deg); } 100% { opacity: 1; transform: scale(1) rotate(-8deg); } }
 
+/* load-in and scroll reveals */
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes blink { 50% { opacity: 0; } }
+.top, .hero > *, .window { animation: rise 640ms var(--ease) both; }
+.hero > :nth-child(1) { animation-delay: 80ms; }
+.hero > :nth-child(2) { animation-delay: 170ms; }
+.hero > :nth-child(3) { animation-delay: 260ms; }
+.window { animation-delay: 380ms; }
+.hero h1::after { content: ""; display: inline-block; width: 0.42em; height: 0.7em; margin-left: 0.14em; background: var(--ink); animation: blink 1s steps(1) infinite; }
+.rv { transition: opacity 620ms var(--ease), transform 620ms var(--ease); transition-delay: calc(var(--d, 0) * 80ms); }
+.pre { opacity: 0; transform: translateY(18px); }
+.staff figure.pre { transform: scale(0.8); }
+.ico, .staff .face { transition: transform 220ms var(--ease); }
+.flow li:hover .ico, .grid article:hover .ico { transform: translateY(-3px); }
+.staff figure:hover .face { transform: translateY(-5px); }
+.brakes dt { transition: transform 220ms var(--ease); }
+.brakes div:hover dt { transform: translateX(4px); }
+.term-foot { padding: 0 1rem 1rem; }
+.term-foot .btn { background: var(--on-ink); color: var(--ink); border-color: var(--on-ink); }
+
 /* sections */
 section { padding-block: 4.2rem 0; }
 section > h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); line-height: 1.08; letter-spacing: -0.03em; font-weight: 720; max-width: 22ch; text-wrap: balance; margin-top: 0.7rem; }
@@ -199,7 +219,7 @@ section > .intro { color: var(--text-2); max-width: 40rem; margin-top: 0.8rem; f
 .needs li { padding: 0.85rem 0; border-bottom: 1px solid var(--line); font-size: 0.93rem; color: var(--text-2); }
 .needs li strong { color: var(--ink); font-weight: 650; }
 
-footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-block: 1.6rem 2.4rem; display: flex; flex-wrap: wrap; gap: 0.6rem 2rem; justify-content: space-between; font-size: 0.82rem; color: var(--text-3); }
+footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-block: 1.6rem 2.4rem; display: flex; flex-wrap: wrap; gap: 0.6rem 2rem; justify-content: space-between; font-size: 0.82rem; color: var(--text-3); }
 
 @media (max-width: 860px) {
   .top nav { display: none; }
@@ -231,14 +251,14 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 <body>
 <!--page-->
 <header class="wrap top">
-  <a class="brand" href="#top"><span class="mark" data-icon="crown"></span>Boardroom</a>
+  <a class="brand" href="#top"><span class="mark" data-icon="crown"></span>Booardroom</a>
   <nav aria-label="Sections">
     <a href="#manager">The manager</a>
     <a href="#flow">How it works</a>
     <a href="#budget">Budget</a>
     <a href="#features">Features</a>
   </nav>
-  <a class="btn small primary" href="#get">Get it</a>
+  <a class="btn small primary" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Get it</a>
 </header>
 
 <main id="top">
@@ -246,14 +266,14 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     <h1>Bring a rough idea. The project manager works out the rest.</h1>
     <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a team of AI developers. You are the CEO: approve, reject, or step out.</p>
     <div class="cta">
-      <a class="btn primary" href="#get">Get Boardroom</a>
+      <a class="btn primary" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Get Booardroom on GitHub</a>
       <a class="btn" href="#manager">Meet the manager</a>
       <small>macOS, Windows, Linux</small>
     </div>
   </div>
 
   <div class="wrap">
-    <div class="window" aria-label="Boardroom, a project overview">
+    <div class="window" aria-label="Booardroom, a project overview">
       <div class="window-bar"><i></i><i></i><i></i><span class="label">Invoice app / Overview</span><span class="label live" id="liveLabel"><span class="dots" style="display:inline-flex"><i></i><i></i><i></i></span><span id="liveText">1 agent working</span></span></div>
       <div class="window-body">
         <div class="org">
@@ -334,7 +354,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
         <span class="label">Agents' share of your 5-hour window</span>
         <b><span id="pct">6.0</span>% <span class="of">of 10%</span></b>
         <div class="cells" id="cells"></div>
-        <p>Claude Code reports how full your subscription window is after each run. Boardroom reads that number and holds new work once the agents have used their share.</p>
+        <p>Claude Code reports how full your subscription window is after each run. Booardroom reads that number and holds new work once the agents have used their share.</p>
       </div>
       <dl class="brakes">
         <div><dt>10%</dt><dd><strong>Share of the window.</strong> Agents stop after burning this slice of your 5-hour or weekly limit.</dd></div>
@@ -377,26 +397,29 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 
   <section class="wrap" id="get">
     <span class="label">Get it</span>
-    <h2>Three commands to open the Boardroom.</h2>
+    <h2>Free, and on GitHub.</h2>
     <div class="get">
       <div class="term">
-        <div class="term-bar"><span class="label">In the project folder</span><button type="button" id="copy">Copy</button></div>
-<pre id="cmd"><span>$</span> npm install
+        <div class="term-bar"><span class="label">In a terminal</span><button type="button" id="copy">Copy</button></div>
+<pre id="cmd"><span>$</span> git clone https://github.com/GracjanFilipek/Agent-Corp.git booardroom
+<span>$</span> cd booardroom
+<span>$</span> npm install
 <span>$</span> npm run app
 <span>#</span> <span>or try it with canned agents, no Claude calls</span>
 <span>$</span> npm run app:demo</pre>
+        <div class="term-foot"><a class="btn" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Open the repository</a></div>
       </div>
       <ul class="needs">
         <li><strong>Node 22.13 or newer.</strong> The server has no other dependencies.</li>
         <li><strong>Claude Code, logged in.</strong> Agents run as <code>claude -p</code> under your own login, on a Pro or Max plan or an API key.</li>
-        <li><strong>A folder to work in.</strong> Point a project at a repository, or let Boardroom create an empty git workspace.</li>
+        <li><strong>A folder to work in.</strong> Point a project at a repository, or let Booardroom create an empty git workspace.</li>
       </ul>
     </div>
   </section>
 </main>
 
 <footer class="wrap">
-  <span>Boardroom drives Claude Code. It is an independent project, not made by Anthropic.</span>
+  <span>Booardroom drives Claude Code. It is an independent project, not made by Anthropic.</span>
   <span>Pixel art drawn on a 10 by 10 grid.</span>
 </footer>
 
@@ -471,7 +494,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
   // Copy the commands.
   const copy = document.getElementById('copy');
   copy.addEventListener('click', async () => {
-    const text = 'npm install\nnpm run app';
+    const text = 'git clone https://github.com/GracjanFilipek/Agent-Corp.git booardroom\ncd booardroom\nnpm install\nnpm run app';
     try {
       await navigator.clipboard.writeText(text);
       copy.textContent = 'Copied';
@@ -481,6 +504,39 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     }
     setTimeout(() => (copy.textContent = 'Copy'), 1800);
   });
+
+  // Scroll reveals. Only things below the fold start hidden, so the first screen is complete without script.
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!calm && 'IntersectionObserver' in window) {
+    const seen = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        entry.target.classList.remove('pre');
+        seen.unobserve(entry.target);
+        if (entry.target.classList.contains('meter')) fillBudget();
+      }
+    }, { rootMargin: '0px 0px -8% 0px' });
+    const targets = document.querySelectorAll('section > .label, section > h2, section > .intro, .brief, .rounds li, .flow li, .grid article, .meter, .brakes div, .staff figure, .term, .needs li');
+    for (const el of targets) {
+      if (el.getBoundingClientRect().top < innerHeight * 0.92) continue;
+      el.classList.add('rv', 'pre');
+      el.style.setProperty('--d', String([...el.parentElement.children].indexOf(el) % 6));
+      seen.observe(el);
+    }
+  }
+  // The budget cells count up once, when the meter scrolls into view.
+  function budgetNow() {
+    return budget;
+  }
+  function fillBudget() {
+    let shown = 0;
+    setBudget(0);
+    const timer = setInterval(() => {
+      shown += 0.5;
+      setBudget(Math.min(shown, budgetNow()));
+      if (shown >= budgetNow()) clearInterval(timer);
+    }, 70);
+  }
 
   // The hero demo: one proposal travels from the manager's desk to Shipped, then the next one arrives.
   if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;

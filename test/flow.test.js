@@ -11,7 +11,7 @@ import { createBudget } from '../src/budget.js';
 import { execFileSync } from 'node:child_process';
 import { rulesFor, covered, parseRules, claudeCodeRules } from '../src/permissions.js';
 
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'boardroom-test-'));
+const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'booardroom-test-'));
 const until = async (fn, ms = 4000) => {
   const end = Date.now() + ms;
   while (Date.now() < end) {
@@ -311,7 +311,7 @@ test('developers inherit what the CEO allows Claude Code, unless the project opt
   close();
 });
 
-test('Boardroom creates the repository, signs commits as the account and pushes approved work', async () => {
+test('Booardroom creates the repository, signs commits as the account and pushes approved work', async () => {
   // A bare repository on disk stands in for GitHub: the fake API hands out its path as the clone URL.
   // The machine running the tests may name a git author of its own. Take that out of the picture.
   process.env.GIT_CONFIG_GLOBAL = '/dev/null';
@@ -352,10 +352,10 @@ test('Boardroom creates the repository, signs commits as the account and pushes 
 
     orch.addDirective(id, { title: 'Ship the feature' });
     orch.setStatus(id, 'active');
-    await until(() => db.get("SELECT COUNT(*) AS n FROM events WHERE text LIKE 'Boardroom pushed%'").n === 1);
+    await until(() => db.get("SELECT COUNT(*) AS n FROM events WHERE text LIKE 'Booardroom pushed%'").n === 1);
     assert.match(execFileSync('git', ['log', '--format=%an <%ae> %s', '--all'], { cwd: remote }).toString(), /The CEO <7\+ceo@users\.noreply\.github\.com> Add feature/);
     assert.equal(seen[0].token, 'secret-token', 'agents get the account in their environment');
-    assert.match(seen[0].prompt, /Boardroom pushes approved work there by itself/);
+    assert.match(seen[0].prompt, /Booardroom pushes approved work there by itself/);
   } finally {
     app.close();
     delete process.env.GIT_CONFIG_GLOBAL;

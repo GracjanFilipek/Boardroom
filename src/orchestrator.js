@@ -27,12 +27,12 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
   const refreshRepo = (project) => github?.status(project.workdir).then((st) => repos.set(project.id, st.web ?? st.remote)).catch(() => {});
   const seen = (project) => ({ ...project, repo: repos.get(project.id) ?? null });
 
-  /** Sends approved work to GitHub. Boardroom does this itself, so no agent needs push rights. */
+  /** Sends approved work to GitHub. Booardroom does this itself, so no agent needs push rights. */
   async function publish(projectId, why) {
     const project = db.get('SELECT * FROM projects WHERE id = ?', projectId);
     if (!project || !github) return { ok: false, skipped: true };
     const res = await github.push(project.workdir);
-    if (res.ok) emit(projectId, 'ceo', `Boardroom pushed ${why} to GitHub.`);
+    if (res.ok) emit(projectId, 'ceo', `Booardroom pushed ${why} to GitHub.`);
     else if (!res.skipped) emit(projectId, 'error', `Pushing to GitHub failed: ${res.error}`);
     refreshRepo(project);
     return res;

@@ -22,7 +22,7 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
   bus.setMaxListeners(100);
   const budget = createBudget(db);
   const github = createGitHub(db, githubOptions);
-  const orch = createOrchestrator({ db, budget, runner, bus, configDir, github, dataDir: dataDir === ':memory:' ? fs.mkdtempSync('/tmp/boardroom-') : dataDir });
+  const orch = createOrchestrator({ db, budget, runner, bus, configDir, github, dataDir: dataDir === ':memory:' ? fs.mkdtempSync('/tmp/booardroom-') : dataDir });
   const history = createHistory(db, configDir ? { configDir } : undefined);
   orch.recover();
 
@@ -297,7 +297,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT) || 4317;
   const host = process.env.HOST || '127.0.0.1';
   app.server.listen(port, host, () => {
-    console.log(`Boardroom is open at http://${host}:${port}${mock ? '  (demo runner, no Claude calls)' : ''}`);
+    console.log(`Booardroom is open at http://${host}:${port}${mock ? '  (demo runner, no Claude calls)' : ''}`);
     app.orch.tick();
   });
 }

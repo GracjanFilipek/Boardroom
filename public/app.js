@@ -160,7 +160,7 @@ function sidebar(r) {
   return h('nav', { id: 'sidebar', 'aria-label': 'Company' },
     h('div', { class: 'brand' },
       h('div', { class: 'brand-mark' }, icon('crown')),
-      h('div', { class: 'brand-name' }, 'Boardroom', runner === 'mock' ? h('small', null, 'Demo mode') : null)),
+      h('div', { class: 'brand-name' }, 'Booardroom', runner === 'mock' ? h('small', null, 'Demo mode') : null)),
     h('button', { class: 'jump', onclick: palette }, icon('search'), h('span', null, 'Jump to…'), h('kbd', null, navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl K')),
     h('div', { class: 'nav' },
       h('span', { class: 'pill', 'data-keep-style': true }),
@@ -271,7 +271,7 @@ function palette() {
   input.focus();
 }
 
-// ---- boardroom --------------------------------------------------------------
+// ---- booardroom --------------------------------------------------------------
 
 function boardView() {
   const { projects, inbox, stats, budget, feed } = S.state;
@@ -486,7 +486,7 @@ function projectView(r) {
     p.is_git ? null : h('div', { class: 'banner' }, icon('alert'), h('div', { style: 'flex:1' }, h('strong', null, 'This folder is not a git repository. '), 'Developers cannot commit their work, and the manager cannot review a diff.'),
       h('button', { class: 'btn small', onclick: () => act(() => api('POST', `/api/projects/${p.id}/git-init`)) }, 'Set up git here')),
     p.is_git && !repo.remote
-      ? h('div', { class: 'banner plain' }, icon('handover'), h('div', { style: 'flex:1' }, h('strong', null, 'Not on GitHub yet. '), github?.login ? `Create a repository under ${github.login} and Boardroom pushes approved work there.` : 'Connect your GitHub account and Boardroom can create the repository and push approved work.'),
+      ? h('div', { class: 'banner plain' }, icon('handover'), h('div', { style: 'flex:1' }, h('strong', null, 'Not on GitHub yet. '), github?.login ? `Create a repository under ${github.login} and Booardroom pushes approved work there.` : 'Connect your GitHub account and Booardroom can create the repository and push approved work.'),
           github?.login
             ? h('button', { class: 'btn small', onclick: () => repoSheet(p) }, 'Create repository')
             : h('button', { class: 'btn small', onclick: githubSheet }, 'Connect GitHub'))
@@ -691,15 +691,15 @@ async function githubSheet() {
     title: 'GitHub',
     body: connected
       ? h('div', null,
-          h('div', { class: 'budget-hero' }, h('b', { style: 'font-size:1.3rem' }, account.login), h('span', { class: 'small muted' }, account.source === 'cli' ? 'Signed in through the GitHub CLI on this computer. Nothing is stored in Boardroom.' : 'Connected with a personal access token, stored in Boardroom’s local database on this computer.')),
+          h('div', { class: 'budget-hero' }, h('b', { style: 'font-size:1.3rem' }, account.login), h('span', { class: 'small muted' }, account.source === 'cli' ? 'Signed in through the GitHub CLI on this computer. Nothing is stored in Booardroom.' : 'Connected with a personal access token, stored in Booardroom’s local database on this computer.')),
           step('1', 'Repositories', 'Each project page offers to create a repository under this account, or to link an existing one.'),
-          step('2', 'Pushing', 'When the manager approves a task, Boardroom pushes it. Developers commit locally and never push.'),
+          step('2', 'Pushing', 'When the manager approves a task, Booardroom pushes it. Developers commit locally and never push.'),
           step('3', 'Your name on the work', `Commits carry ${account.name} unless the folder or this computer already sets an author.`))
       : h('div', null,
           account?.error ? h('div', { class: 'banner', style: 'margin:0 0 1rem' }, icon('alert'), h('div', null, `GitHub rejected the sign-in found on this computer. ${account.error}`)) : null,
-          h('p', { class: 'muted', style: 'margin-bottom:1rem' }, 'Boardroom acts on GitHub with your account: it creates repositories and pushes approved work. Two ways to sign in.'),
-          step('A', 'GitHub CLI, nothing to paste', ['Install the GitHub CLI, run ', h('span', { class: 'mono' }, 'gh auth login'), ' in a terminal, then reopen this sheet. Boardroom picks the sign-in up.']),
-          step('B', 'Personal access token', ['Create one at ', h('a', { href: 'https://github.com/settings/tokens/new?scopes=repo&description=Boardroom', target: '_blank', rel: 'noopener' }, 'github.com, Settings, Developer settings, Tokens (classic)'), ' with the “repo” scope and paste it here.']),
+          h('p', { class: 'muted', style: 'margin-bottom:1rem' }, 'Booardroom acts on GitHub with your account: it creates repositories and pushes approved work. Two ways to sign in.'),
+          step('A', 'GitHub CLI, nothing to paste', ['Install the GitHub CLI, run ', h('span', { class: 'mono' }, 'gh auth login'), ' in a terminal, then reopen this sheet. Booardroom picks the sign-in up.']),
+          step('B', 'Personal access token', ['Create one at ', h('a', { href: 'https://github.com/settings/tokens/new?scopes=repo&description=Booardroom', target: '_blank', rel: 'noopener' }, 'github.com, Settings, Developer settings, Tokens (classic)'), ' with the “repo” scope and paste it here.']),
           h('div', { class: 'pick', style: 'margin-top:1rem' }, input, h('button', { class: 'btn primary', onclick: connect }, 'Connect'))),
     foot: connected && account.source === 'token'
       ? [h('button', { class: 'btn bad', onclick: async () => { await api('DELETE', '/api/github'); sheet.close(); toast('GitHub disconnected.', 'check'); refresh(); } }, 'Disconnect')]
@@ -773,7 +773,7 @@ function projectForm(p, devCount = 2) {
     h('label', { class: 'field' }, h('span', null, 'Brief'), h('textarea', { name: 'brief', placeholder: 'What the product does, who uses it, what matters this month.' }, v.brief), h('small', null, 'The project manager plans from this text. Agents read it before each run.')),
     p ? null : h('div', { class: 'field' }, h('label', { for: 'workdir' }, h('span', null, 'Folder')),
       h('div', { class: 'pick' }, folderInput, h('button', { class: 'btn', type: 'button', onclick: choose }, icon('archive'), FILES_APP ? `Choose in ${FILES_APP}` : 'Choose folder')),
-      h('small', null, 'An existing repository on this machine. Leave empty and Boardroom creates a fresh git workspace.')),
+      h('small', null, 'An existing repository on this machine. Leave empty and Booardroom creates a fresh git workspace.')),
     h('div', { class: 'row2' },
       h('label', { class: 'field' }, h('span', null, 'Who approves proposals'), select('approval', [['ceo', 'You approve each one'], ['auto', 'Autopilot, no approval']], v.approval)),
       h('label', { class: 'field' }, h('span', null, 'Developers'), select('devs', [1, 2, 3, 4, 5, 6].map((n) => [n, String(n)]), devCount))),
@@ -787,7 +787,7 @@ function projectForm(p, devCount = 2) {
     h('label', { class: 'field' }, h('span', null, 'Mode'), select('permission_mode', [['acceptEdits', 'Edit files, run listed commands'], ['bypassPermissions', 'Skip all permission checks']], v.permission_mode),
       h('small', null, 'Skipping checks lets developers run any shell command. Use it only in a sandbox.')),
     p ? rulesEditor(p) : null,
-    p ? h('label', { class: 'field' }, h('span', null, 'GitHub'), select('auto_push', [['1', 'Push each approved task to GitHub'], ['0', 'Do not push. I push myself']], p.auto_push ? '1' : '0'), h('small', null, 'Boardroom does the pushing with your account. Developers commit locally and never push.')) : null,
+    p ? h('label', { class: 'field' }, h('span', null, 'GitHub'), select('auto_push', [['1', 'Push each approved task to GitHub'], ['0', 'Do not push. I push myself']], p.auto_push ? '1' : '0'), h('small', null, 'Booardroom does the pushing with your account. Developers commit locally and never push.')) : null,
     h('label', { class: 'field' }, h('span', null, 'Model'), h('input', { name: 'model', value: v.model, placeholder: 'Default model of your Claude Code' })),
   );
   const submit = () => {
@@ -933,7 +933,7 @@ function importSheet() {
       step('1', 'Request the export', ['Open ', h('a', { href: 'https://claude.ai/settings/data-privacy-controls', target: '_blank', rel: 'noopener' }, 'claude.ai, Settings, Privacy'), ' and press Export data.']),
       step('2', 'Wait for the email', 'Anthropic emails you a download link, usually within minutes. The link expires after 24 hours.'),
       step('3', 'Download the zip', 'It lands in your Downloads folder with a name that starts with “data-”.'),
-      step('4', 'Pick it here', 'Choose the zip as it is. Boardroom reads conversations.json out of it. Nothing leaves this computer.'),
+      step('4', 'Pick it here', 'Choose the zip as it is. Booardroom reads conversations.json out of it. Nothing leaves this computer.'),
       picker),
     foot: [h('button', { class: 'btn primary', onclick: () => picker.click() }, icon('handover'), 'Choose the export file')],
   });

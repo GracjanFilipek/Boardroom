@@ -1,4 +1,4 @@
-# Boardroom
+# Booardroom
 
 A company of headless Claude agents. You are the CEO.
 
@@ -28,7 +28,7 @@ The server has no dependencies. Data lives in `./data` (SQLite).
 
 ```sh
 npm install      # fetches Electron, once
-npm run app      # opens Boardroom in its own window
+npm run app      # opens Booardroom in its own window
 npm run app:demo # same, with canned agents
 npm run dist     # builds an installer for your system into ./release
 ```
@@ -98,7 +98,7 @@ Left alone, the loop would run until your subscription limit. Four brakes stop i
 | Daily cap in USD at API prices | off | Budget |
 | New tasks per project per day | 10 | Project settings |
 
-Claude Code reports how full both subscription windows are after each run. Boardroom stores the reading it saw first in a window and counts growth from there as the agents' share. If you use Claude yourself during the same window, that usage counts toward the share too, so treat the number as an upper bound.
+Claude Code reports how full both subscription windows are after each run. Booardroom stores the reading it saw first in a window and counts growth from there as the agents' share. If you use Claude yourself during the same window, that usage counts toward the share too, so treat the number as an upper bound.
 
 A closed gate lets running work finish and starts nothing new. It opens when the window resets.
 
@@ -118,7 +118,7 @@ Open a chat and **hand it over** to a project. Claude can compress it into a bri
 
 ## What developers may do
 
-Developers get **the same permissions you give Claude Code**. Before each run Boardroom reads the allow rules from your Claude Code settings, from the project folder's `.claude` settings, and from the "always allow" answers Claude Code remembers for any folder, and passes them on. Allow something in Claude Code and the team has it on their next run. If your Claude Code runs in auto mode or skips permission checks, developers do too.
+Developers get **the same permissions you give Claude Code**. Before each run Booardroom reads the allow rules from your Claude Code settings, from the project folder's `.claude` settings, and from the "always allow" answers Claude Code remembers for any folder, and passes them on. Allow something in Claude Code and the team has it on their next run. If your Claude Code runs in auto mode or skips permission checks, developers do too.
 
 On top of that each project has its own list. It starts with file tools, local git (status, diff, log, add, commit), `npm test` and `npm run`. In project settings you add commands such as `python3`, `docker` or `curl` with one press.
 
@@ -130,12 +130,12 @@ Several developers share one working tree. They are told to stage only their own
 
 ## GitHub
 
-Agents do not sign in to GitHub and do not push. Boardroom holds your account and does both itself, which is why a developer can no longer get stuck on authentication.
+Agents do not sign in to GitHub and do not push. Booardroom holds your account and does both itself, which is why a developer can no longer get stuck on authentication.
 
-- **Connect once.** Open **GitHub** in the sidebar. If the GitHub CLI is logged in on your machine (`gh auth login`), Boardroom uses that sign-in and stores nothing. Otherwise paste a personal access token with the `repo` scope; it is kept in Boardroom's local database, in plain text, on your computer.
+- **Connect once.** Open **GitHub** in the sidebar. If the GitHub CLI is logged in on your machine (`gh auth login`), Booardroom uses that sign-in and stores nothing. Otherwise paste a personal access token with the `repo` scope; it is kept in Booardroom's local database, in plain text, on your computer.
 - **Create the repository with one press.** A project whose folder has no remote shows "Not on GitHub yet" with a Create repository button (private by default), or link one that exists. A folder that is not a git repository gets a "Set up git here" button first.
-- **Approved work is pushed for you.** When the manager approves a task, or you accept one, Boardroom pushes the branch. Switch this off per project in settings. "Push now" on the project page pushes on demand.
-- **Commits carry your name.** Boardroom sets the commit author for the project folder to your GitHub name and private GitHub address, unless the folder or your machine already names an author.
+- **Approved work is pushed for you.** When the manager approves a task, or you accept one, Booardroom pushes the branch. Switch this off per project in settings. "Push now" on the project page pushes on demand.
+- **Commits carry your name.** Booardroom sets the commit author for the project folder to your GitHub name and private GitHub address, unless the folder or your machine already names an author.
 
 During a run, developers also get the account in their environment (`GH_TOKEN`), so `gh` and `git` commands you allow them work. They are told not to push or create repositories.
 

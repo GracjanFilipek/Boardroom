@@ -19,8 +19,9 @@ export function parseRules(text) {
   return [...new Set(out)];
 }
 
-// Shell words that need no permission of their own, or that only set the scene for the real command.
-const SKIP = new Set(['cd', 'echo', 'true', 'false', 'export', 'set', 'test', '[', 'then', 'do', 'done', 'fi', 'if', 'for', 'while', 'time']);
+// Shell words that need no permission of their own: scene-setting, and read-only commands Claude Code runs
+// freely by themselves. They show up in refusals only because they share a line with the command that matters.
+const SKIP = new Set(['ls', 'pwd', 'cat', 'head', 'tail', 'wc', 'sort', 'uniq', 'grep', 'which', 'date', 'cd', 'echo', 'true', 'false', 'export', 'set', 'test', '[', 'then', 'do', 'done', 'fi', 'if', 'for', 'while', 'time']);
 // Tools where the second word decides what happens, so the rule names both.
 const TWO_WORDS = new Set(['git', 'docker', 'kubectl', 'gh', 'npm', 'pnpm', 'yarn', 'cargo', 'go', 'dotnet', 'brew', 'apt', 'apt-get', 'systemctl']);
 

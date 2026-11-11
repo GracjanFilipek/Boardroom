@@ -218,35 +218,49 @@ test('the CEO talks to the manager, who briefs the team and queues the work', as
   close();
 });
 
-test('a blocked command becomes a request, and allowing it sends the task back with the rule', async () => {
-  const allowed = [];
+test('a refused command stops the developer, asks the CEO, and the same session continues with the answer', async () => {
+  const runs = [];
   const base = createMockRunner({ delay: 5 });
-  let blocked = true;
+  // What the developer tries on each run of the task, in order.
+  const attempts = [
+    [{ tool: 'Bash', command: 'cd app && python3 -m pytest tests/ | tail -5' }],
+    [{ tool: 'Bash', command: 'docker exec web ls' }],
+    [{ tool: 'Bash', command: 'tail -1 log.txt' }], // already refused by the CEO: must not stop the run again
+  ];
   const runner = async (o) => {
-    const res = await base(o);
-    if (o.kind === 'build') {
-      allowed.push(o.allowedTools);
-      if (blocked) res.denials = [{ tool: 'Bash', command: 'cd app && python3 -m pytest tests/ | tail -5' }, { tool: 'Bash', command: 'docker exec web ls' }];
+    if (o.kind !== 'build') return base(o);
+    runs.push({ resume: o.resume, prompt: o.prompt, tools: o.allowedTools });
+    for (const denial of attempts[runs.length - 1] ?? []) {
+      if (o.onDenial(denial)) return { ok: false, paused: true, error: 'paused for permission', sessionId: 'session-1', denials: [denial] };
     }
-    if (o.kind === 'review') res.structured = blocked ? { verdict: 'revise', notes: 'Nothing was verified.' } : { verdict: 'approve', notes: 'Verified.' };
-    return res;
+    return base(o);
   };
   const { db, orch, close } = company(runner);
-  const id = orch.createProject({ name: 'Blocked', devs: 1, max_iterations: 1 });
+  const id = orch.createProject({ name: 'Blocked', devs: 1 });
   orch.addDirective(id, { title: 'Run the tests' });
   orch.setStatus(id, 'active');
-  await until(() => db.get('SELECT status FROM tasks').status === 'escalated');
 
-  const requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending' ORDER BY id");
-  assert.deepEqual(requests.map((r) => r.rule), ['Bash(python3 *)', 'Bash(tail *)', 'Bash(docker exec *)'], 'one request per rule, however often it is denied');
-  blocked = false;
-  orch.decidePermission(requests[1].id, false);
+  await until(() => db.get('SELECT status FROM tasks').status === 'blocked');
+  assert.equal(runs.length, 1, 'the developer does not carry on while it waits');
+  let requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending' ORDER BY id");
+  assert.deepEqual(requests.map((r) => r.rule), ['Bash(python3 *)', 'Bash(tail *)']);
+  assert.equal(db.get('SELECT COUNT(*) AS n FROM events WHERE type = ?', 'error').n, 2, 'a pause is not reported as a failed run');
+
   orch.decidePermission(requests[0].id, true);
-  assert.equal(db.get('SELECT status FROM tasks').status, 'escalated', 'the task waits while another request from it is open');
-  orch.decidePermission(requests[2].id, true);
+  assert.equal(db.get('SELECT status FROM tasks').status, 'blocked', 'it waits until every request is answered');
+  orch.decidePermission(requests[1].id, false);
+
+  // Second run: same session, told what was decided, and it stops again on the next unknown command.
+  await until(() => runs.length === 2 && db.get('SELECT status FROM tasks').status === 'blocked');
+  assert.equal(runs[1].resume, 'session-1');
+  assert.match(runs[1].prompt, /Allowed now: Bash\(python3 \*\)\.\nStill blocked, by the CEO's decision: Bash\(tail \*\)/);
+  assert.match(runs[1].tools, /Bash\(python3 \*\)$/);
+  requests = db.all("SELECT * FROM permission_requests WHERE status = 'pending'");
+  assert.deepEqual(requests.map((r) => r.rule), ['Bash(docker exec *)']);
+  orch.decidePermission(requests[0].id, true);
+
   await until(() => db.get('SELECT status FROM tasks').status === 'done');
-  assert.match(allowed.at(-1), /Bash\(python3 \*\),Bash\(docker exec \*\)$/);
-  assert.match(allowed.at(-1), /^Read,Edit/, 'the default rules stay');
+  assert.equal(runs.length, 3, 'the command the CEO refused did not stop the third run');
   close();
 });
 

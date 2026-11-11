@@ -44,6 +44,7 @@ export function runClaude(o) {
 
     let buf = '';
     let stderr = '';
+    const calls = new Map(); // tool_use id -> the call, to name what a refusal was about
     const handle = (line) => {
       if (!line.trim()) return;
       let msg;
@@ -56,7 +57,28 @@ export function runClaude(o) {
       if (msg.type === 'assistant' && !msg.parent_tool_use_id) {
         for (const block of msg.message?.content ?? []) {
           if (block.type === 'text' && block.text.trim()) o.onEvent?.({ type: 'say', text: block.text.trim() });
-          if (block.type === 'tool_use') o.onEvent?.({ type: 'tool', text: describeTool(block) });
+          if (block.type === 'tool_use') {
+            calls.set(block.id, block);
+            o.onEvent?.({ type: 'tool', text: describeTool(block) });
+          }
+        }
+      } else if (msg.type === 'user' && !msg.parent_tool_use_id && !out.paused) {
+        // A refused tool call comes back as an error result flagged with a rejected permission decision.
+        const rejected = new Set((msg.tool_result_meta ?? []).filter((m) => m.permission_decision?.decision === 'reject').map((m) => m.id));
+        for (const block of Array.isArray(msg.message?.content) ? msg.message.content : []) {
+          if (block.type !== 'tool_result' || !block.is_error) continue;
+          const text = typeof block.content === 'string' ? block.content : '';
+          if (!rejected.has(block.tool_use_id) && !/requires approval|requested permissions/i.test(text)) continue;
+          const call = calls.get(block.tool_use_id);
+          if (!call) continue;
+          const denial = { tool: call.name, command: call.input?.command ?? '', detail: call.input?.file_path ?? call.input?.url ?? '' };
+          (out.denials ??= []).push(denial);
+          // The caller may stop the run here, to ask a person and resume the session with the answer.
+          if (o.onDenial?.(denial)) {
+            out.paused = true;
+            child.kill();
+            return;
+          }
         }
       } else if (msg.type === 'rate_limit_event') {
         o.onEvent?.({ type: 'limits', info: msg.rate_limit_info });
@@ -66,7 +88,7 @@ export function runClaude(o) {
         out.structured = msg.structured_output ?? null;
         out.costUsd = msg.total_cost_usd ?? 0;
         out.turns = msg.num_turns ?? 0;
-        out.denials = (msg.permission_denials ?? []).map((d) => ({ tool: d.tool_name, command: d.tool_input?.command ?? '', detail: d.tool_input?.file_path ?? d.tool_input?.url ?? '' }));
+        if (!out.paused) out.denials = (msg.permission_denials ?? []).map((d) => ({ tool: d.tool_name, command: d.tool_input?.command ?? '', detail: d.tool_input?.file_path ?? d.tool_input?.url ?? '' }));
         const u = msg.usage ?? {};
         out.inputTokens = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
         out.outputTokens = u.output_tokens ?? 0;
@@ -89,7 +111,11 @@ export function runClaude(o) {
       resolve(out);
     });
     child.on('close', (code) => {
-      handle(buf);
+      if (!out.paused) handle(buf);
+      if (out.paused) {
+        out.ok = false;
+        out.error = 'paused for permission';
+      }
       if (!out.ok && !out.error) out.error = stderr.trim() || `claude exited with code ${code}`;
       out.durationMs = Date.now() - started;
       resolve(out);
@@ -175,7 +201,13 @@ export function createMockRunner({ delay = 900 } = {}) {
       },
     });
     // CORP_MOCK_DENY=1 makes the first demo build hit a blocked command, to show the permission request.
-    const denials = process.env.CORP_MOCK_DENY && o.kind === 'build' && !denied ? ((denied = true), [{ tool: 'Bash', command: 'python3 -m pytest tests/ -q' }]) : [];
+    const denials = [];
+    if (process.env.CORP_MOCK_DENY && o.kind === 'build' && !denied) {
+      denied = true;
+      const denial = { tool: 'Bash', command: 'python3 -m pytest tests/ -q' };
+      denials.push(denial);
+      if (o.onDenial?.(denial)) return { ok: false, paused: true, error: 'paused for permission', denials, sessionId: `mock-${n}`, costUsd: 0, inputTokens: 0, outputTokens: 0, turns: 1 };
+    }
     return { ok: true, denials, result, structured, sessionId: `mock-${n}`, costUsd: 0.08, inputTokens: 4200, outputTokens: 380, turns: 3, error: null, durationMs: delay };
   };
 }

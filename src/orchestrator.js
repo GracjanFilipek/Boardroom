@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { IDEAS_SCHEMA, REVIEW_SCHEMA, CHAT_SCHEMA, chatPrompt, ideatePrompt, designPrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
+import { IDEAS_SCHEMA, REVIEW_SCHEMA, CHAT_SCHEMA, chatPrompt, ideatePrompt, designPrompt, buildPrompt, revisePrompt, continuePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
 import { createRoles } from './roles.js';
 import { parseRules, rulesFor, covered, claudeCodeRules, claudeCodeMode } from './permissions.js';
 
@@ -10,7 +10,7 @@ export const DEFAULT_DEV_TOOLS =
 const PM_READ_TOOLS = 'Read,Glob,Grep';
 const DESIGNER_TOOLS = 'Read,Glob,Grep,Skill';
 const PM_REVIEW_ALLOWED = 'Read,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *)';
-const OPEN = ['queued', 'in_progress', 'review', 'changes', 'escalated'];
+const OPEN = ['queued', 'in_progress', 'blocked', 'review', 'changes', 'escalated'];
 const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken'];
 const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
 
@@ -89,6 +89,16 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     }
   }
 
+  /** Should a run stop for this refusal? Yes, unless the CEO already said no to every rule it needs. */
+  function needsDecision(project, denial) {
+    const have = toolsOf(project);
+    return rulesFor(denial).some((rule) => {
+      if (covered(rule, have)) return false;
+      const known = db.get('SELECT status FROM permission_requests WHERE project_id = ? AND rule = ?', project.id, rule);
+      return !known || known.status === 'pending';
+    });
+  }
+
   function addRules(projectId, rules) {
     const project = db.get('SELECT * FROM projects WHERE id = ?', projectId);
     if (!project) throw new Error('Project not found.');
@@ -105,12 +115,20 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     if (allow) {
       addRules(req.project_id, [req.rule]);
       emit(req.project_id, 'ceo', `The CEO allowed the team to use ${req.rule}.`);
-      // The task that hit the wall goes back to its developer, unless more requests from it still wait.
-      const task = req.task_id ? db.get('SELECT * FROM tasks WHERE id = ?', req.task_id) : null;
-      const stillWaiting = req.task_id ? db.get("SELECT COUNT(*) AS n FROM permission_requests WHERE task_id = ? AND status = 'pending'", req.task_id).n : 0;
-      if (task && !stillWaiting && ['escalated', 'failed'].includes(task.status)) {
-        const note = `The CEO has now allowed commands that were blocked before (${req.rule} and any others granted). Run the verification steps you could not run and finish the task.`;
-        setTask(task, { status: task.report ? 'changes' : 'queued', iteration: 0, failures: 0, review_notes: [task.review_notes, note].filter(Boolean).join('\n\n') });
+    }
+    // Once every request from a task is answered, its developer picks the work up again.
+    const task = req.task_id ? db.get('SELECT * FROM tasks WHERE id = ?', req.task_id) : null;
+    const stillWaiting = req.task_id ? db.get("SELECT COUNT(*) AS n FROM permission_requests WHERE task_id = ? AND status = 'pending'", req.task_id).n : 0;
+    if (task && !stillWaiting) {
+      const answers = db.all("SELECT rule, status FROM permission_requests WHERE task_id = ? AND status != 'pending'", task.id);
+      const yes = answers.filter((a) => a.status === 'allowed').map((a) => a.rule);
+      const no = answers.filter((a) => a.status === 'ignored').map((a) => a.rule);
+      const note = [yes.length ? `Allowed now: ${yes.join(', ')}.` : '', no.length ? `Still blocked, by the CEO's decision: ${no.join(', ')}. Do not ask for these again.` : ''].filter(Boolean).join('\n');
+      if (task.status === 'blocked') {
+        setTask(task, { status: 'changes', resume_note: note });
+        emit(req.project_id, 'ceo', `“${task.title}” continues. ${note.replace(/\n/g, ' ')}`, { taskId: task.id });
+      } else if (allow && ['escalated', 'failed'].includes(task.status)) {
+        setTask(task, { status: task.report ? 'changes' : 'queued', iteration: 0, failures: 0, resume_note: note });
         emit(req.project_id, 'ceo', `“${task.title}” goes back to the developers with the new permission.`, { taskId: task.id });
       }
     }
@@ -361,18 +379,18 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
       .then((res) => {
         busy.delete(key);
         db.update('runs', runId, {
-          status: res.ok ? 'ok' : 'error',
+          status: res.ok ? 'ok' : res.paused ? 'paused' : 'error',
           cost_usd: res.costUsd || 0,
           input_tokens: res.inputTokens || 0,
           output_tokens: res.outputTokens || 0,
           turns: res.turns || 0,
           session_id: res.sessionId ?? null,
-          error: res.ok ? null : clip(res.error, 1000),
+          error: res.ok || res.paused ? null : clip(res.error, 1000),
           ended_at: now(),
         });
         // The project may have been deleted while the run was in flight.
         if (db.get('SELECT id FROM projects WHERE id = ?', project.id)) {
-          if (!res.ok) emit(project.id, 'error', `${agent?.name ?? 'Run'} failed: ${res.error}`, ctx);
+          if (!res.ok && !res.paused) emit(project.id, 'error', `${agent?.name ?? 'Run'} failed: ${res.error}`, ctx);
           if (kind === 'build' && res.denials?.length) recordDenials(db.get('SELECT * FROM projects WHERE id = ?', project.id), agent, task, res.denials);
           onDone(res);
         }
@@ -463,9 +481,13 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
   function build(project, dev, task, peers) {
     const revision = task.status === 'changes';
     const resume = revision && task.session_id && task.assignee === dev.id ? task.session_id : undefined;
-    const prompt = resume ? revisePrompt({ task }) : buildPrompt({ project: seen(project), handovers: handoversOf(project.id), task, peers }) + (revision ? `\n\n## Review notes from the previous round\n${task.review_notes}` : '');
-    setTask(task, { status: 'in_progress', assignee: dev.id });
-    emit(project.id, 'assign', revision ? `PM → ${dev.name}: revise “${task.title}”.\n${task.review_notes}` : `PM → ${dev.name}: build “${task.title}”.`, { taskId: task.id, agentId: dev.id });
+    const continuing = task.resume_note; // set when the CEO has just ruled on a blocked command
+    const fresh = () => buildPrompt({ project: seen(project), handovers: handoversOf(project.id), task, peers });
+    const prompt = continuing
+      ? resume ? continuePrompt({ task }) : `${fresh()}\n\n## Decision from the CEO on blocked commands\n${continuing}`
+      : resume ? revisePrompt({ task }) : fresh() + (revision && task.review_notes ? `\n\n## Review notes from the previous round\n${task.review_notes}` : '');
+    setTask(task, { status: 'in_progress', assignee: dev.id, resume_note: null });
+    emit(project.id, 'assign', continuing ? `PM → ${dev.name}: continue “${task.title}”. ${continuing}` : revision ? `PM → ${dev.name}: revise “${task.title}”.\n${task.review_notes ?? ''}` : `PM → ${dev.name}: build “${task.title}”.`, { taskId: task.id, agentId: dev.id });
     start({
       project,
       agent: dev,
@@ -477,17 +499,30 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
         permissionMode: modeOf(project),
         allowedTools: toolsOf(project).join(','),
         maxTurns: project.max_turns,
+        // A refused command stops the run on the spot. The CEO is asked, and the session resumes with the answer.
+        onDenial(denial) {
+          const now_ = db.get('SELECT * FROM projects WHERE id = ?', project.id);
+          if (!now_ || !needsDecision(now_, denial)) return false;
+          recordDenials(now_, dev, task, [denial]);
+          return true;
+        },
       },
       onDone(res) {
         const current = db.get('SELECT * FROM tasks WHERE id = ?', task.id);
         if (!current || current.status !== 'in_progress') return; // cancelled meanwhile
+        if (res.paused) {
+          const waiting = db.all("SELECT rule FROM permission_requests WHERE task_id = ? AND status = 'pending'", task.id).map((r) => r.rule);
+          setTask(current, { status: 'blocked', session_id: res.sessionId ?? current.session_id });
+          emit(project.id, 'report', `${dev.name} → PM: I stopped. I need the CEO's permission for ${waiting.join(', ') || 'a command'} and will continue once it is decided.`, { taskId: task.id, agentId: dev.id });
+          return;
+        }
         if (res.ok) {
           setTask(current, { status: 'review', report: res.result || '(no report)', session_id: res.sessionId ?? current.session_id, failures: 0 });
           emit(project.id, 'report', `${dev.name} → PM: ${res.result || '(no report)'}`, { taskId: task.id, agentId: dev.id });
         } else {
           const failures = current.failures + 1;
           // A failed resume often means the session is gone: drop it so the retry starts clean.
-          setTask(current, { status: failures >= 2 ? 'failed' : revision ? 'changes' : 'queued', failures, session_id: resume ? null : current.session_id });
+          setTask(current, { status: failures >= 2 ? 'failed' : revision ? 'changes' : 'queued', failures, session_id: resume ? null : current.session_id, resume_note: continuing ?? null });
           if (failures >= 2) emit(project.id, 'error', `“${task.title}” failed twice and waits for the CEO.`, { taskId: task.id });
         }
       },

@@ -44,7 +44,7 @@ export function createApp({ dataDir, runner, mock = false, configDir, github: gi
         status: p.status,
         approval: p.approval,
         proposed: count("SELECT COUNT(*) AS n FROM ideas WHERE project_id = ? AND status = 'proposed'"),
-        open: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('queued','in_progress','review','changes')"),
+        open: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('queued','in_progress','blocked','review','changes')"),
         done: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status = 'done'"),
         attention: count("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('escalated','failed')") + count("SELECT COUNT(*) AS n FROM permission_requests WHERE project_id = ? AND status = 'pending'"),
         working: agents.filter((a) => a.job).length,

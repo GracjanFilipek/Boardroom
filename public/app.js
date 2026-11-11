@@ -368,12 +368,12 @@ function rejectSheet(idea) {
 function permissionCard(req, showProject, i = 0) {
   const decide = (verb) => () => act(async () => {
     await api('POST', `/api/permissions/${req.id}/${verb}`);
-    if (verb === 'allow') toast(`The team may now use ${ruleLabel(req.rule)}.`, 'check');
+    toast(verb === 'allow' ? `Allowed ${ruleLabel(req.rule)}. The developer continues.` : `${ruleLabel(req.rule)} stays blocked. The developer continues without it.`, 'check');
   });
   return h('article', { class: 'card decision enter', 'data-key': `perm${req.id}`, 'data-flip': `perm${req.id}`, style: `--i:${Math.min(i, 6)}` },
     h('div', { class: 'decision-head' },
       h('span', { class: 'tile xs' }, icon('sliders')),
-      h('strong', null, req.agent_name ?? 'A developer'), 'was blocked',
+      h('strong', null, req.agent_name ?? 'A developer'), 'stopped and is waiting for you',
       showProject ? h('span', { class: 'chip accent' }, req.project_name) : null,
       h('span', null, ago(req.ts))),
     h('h3', null, 'Allow ', h('span', { class: 'mono' }, ruleLabel(req.rule)), '?'),
@@ -444,7 +444,7 @@ function projectView(r) {
   const active = p.status === 'active';
   const proposed = ideas.filter((i) => i.status === 'proposed');
   const attention = tasks.filter((t) => ['escalated', 'failed'].includes(t.status));
-  const openTasks = tasks.filter((t) => ['queued', 'changes', 'in_progress', 'review'].includes(t.status));
+  const openTasks = tasks.filter((t) => ['queued', 'changes', 'blocked', 'in_progress', 'review'].includes(t.status));
   const taskTitle = (id) => tasks.find((t) => t.id === id)?.title ?? 'a task';
   const agentById = new Map(agents.map((a) => [a.id, a]));
   const messages = events.filter((e) => S.detailLevel || (e.type !== 'tool' && e.type !== 'say'));
@@ -540,7 +540,7 @@ function projectView(r) {
           : h('p', { class: 'small muted', style: 'margin-top:.6rem' }, 'Empty. When you set a rule or a preference, the manager writes it here. Developers and the designer read it before each run.')));
   } else if (r.tab === 'board') {
     const lanes = [
-      ['Queued', 'var(--text-3)', tasks.filter((t) => ['queued', 'changes'].includes(t.status)).reverse()],
+      ['Queued', 'var(--text-3)', tasks.filter((t) => ['queued', 'changes', 'blocked'].includes(t.status)).reverse()],
       ['Building', 'var(--green)', tasks.filter((t) => t.status === 'in_progress')],
       ['In review', 'var(--orange)', tasks.filter((t) => t.status === 'review')],
       ['Shipped', 'var(--ink)', tasks.filter((t) => t.status === 'done').slice(0, 10)],
@@ -558,6 +558,7 @@ function projectView(r) {
                 h('span', { class: 'ticket-meta' },
                   who ? [avatar('dev', 'xs', t.status === 'in_progress', who.name), who.name] : 'Unassigned',
                   h('span', { class: 'push' },
+                    t.status === 'blocked' ? h('span', { class: 'chip orange' }, 'Needs permission') : null,
                     t.status === 'changes' ? h('span', { class: 'chip orange' }, 'Revise') : null,
                     t.iteration > 0 ? h('span', { class: 'chip' }, `Round ${t.iteration + 1}`) : null,
                     t.effort ? h('span', { class: 'chip' }, t.effort) : null)));
@@ -820,7 +821,7 @@ async function taskSheet(id) {
     return toast(err.message);
   }
   const { task, events, runs } = data;
-  const [label, tone] = { queued: ['Queued', ''], in_progress: ['Building', 'green'], review: ['In review', 'accent'], changes: ['Sent back', 'orange'], escalated: ['Escalated to you', 'orange'], done: ['Shipped', 'green'], failed: ['Failed', 'red'], cancelled: ['Cancelled', ''] }[task.status];
+  const [label, tone] = { queued: ['Queued', ''], in_progress: ['Building', 'green'], review: ['In review', 'accent'], changes: ['Sent back', 'orange'], blocked: ['Waiting for your permission', 'orange'], escalated: ['Escalated to you', 'orange'], done: ['Shipped', 'green'], failed: ['Failed', 'red'], cancelled: ['Cancelled', ''] }[task.status];
   const cost = runs.reduce((sum, r) => sum + r.cost_usd, 0);
   const rule = (action) => () => { sheet.close(); act(() => api('POST', `/api/tasks/${id}/${action}`)); };
   const section = (title, text) => (text ? [h('h3', null, title), h('div', { class: 'plan' }, text)] : null);

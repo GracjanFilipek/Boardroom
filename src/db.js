@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS tasks (
   idea_id INTEGER REFERENCES ideas(id) ON DELETE SET NULL,
   title TEXT NOT NULL,
   spec TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'queued',          -- queued | in_progress | review | changes | escalated | done | failed | cancelled
+  status TEXT NOT NULL DEFAULT 'queued',          -- queued | in_progress | blocked | review | changes | escalated | done | failed | cancelled
   assignee INTEGER REFERENCES agents(id) ON DELETE SET NULL,
   iteration INTEGER NOT NULL DEFAULT 0,
   failures INTEGER NOT NULL DEFAULT 0,
@@ -143,6 +143,7 @@ export function openDb(dataDir) {
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'memo')) raw.exec("ALTER TABLE projects ADD COLUMN memo TEXT NOT NULL DEFAULT ''");
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'inherit_claude')) raw.exec('ALTER TABLE projects ADD COLUMN inherit_claude INTEGER NOT NULL DEFAULT 1');
   if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'auto_push')) raw.exec('ALTER TABLE projects ADD COLUMN auto_push INTEGER NOT NULL DEFAULT 1');
+  if (!raw.prepare('PRAGMA table_info(tasks)').all().some((c) => c.name === 'resume_note')) raw.exec('ALTER TABLE tasks ADD COLUMN resume_note TEXT');
   if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();

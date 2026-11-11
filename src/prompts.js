@@ -173,6 +173,14 @@ ${task.review_notes}
 Make these changes, verify them, commit, and end with an updated report.`;
 }
 
+export function continuePrompt({ task }) {
+  return `You stopped work on "${task.title}" because a command needed the CEO's permission. The CEO has decided.
+
+${task.resume_note}
+
+Continue the task from where you stopped. Run what you could not run before. For anything that stays blocked, do the work without it and name it in your report. End with your report as usual.`;
+}
+
 export function reviewPrompt({ project, handovers, task }) {
   return `${context(project, handovers)}
 

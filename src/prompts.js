@@ -29,8 +29,9 @@ export const IDEAS_SCHEMA = (count) => ({
           pitch: { type: 'string', description: 'Two sentences for the CEO: what changes and who benefits' },
           plan: { type: 'string', description: 'Work order for the developer: concrete steps, files to touch, how to verify' },
           effort: { type: 'string', enum: ['S', 'M', 'L'] },
+          needs_design: { type: 'boolean', description: 'True when the task changes what a person sees or does' },
         },
-        required: ['title', 'pitch', 'plan', 'effort'],
+        required: ['title', 'pitch', 'plan', 'effort', 'needs_design'],
       },
     },
   },
@@ -67,6 +68,22 @@ ${list(rejected, (i) => `- ${i.title}${i.reason ? ` (reason: ${i.reason})` : ''}
 ## Task
 Propose up to ${count} ideas, the most valuable first. Each idea must fit in one developer session. Prefer work that moves the product forward over cleanup. Build on what already shipped, and take the reasons behind past rejections as direction. If the repository is empty, start with the smallest version that runs.
 Write in the language of the brief.`;
+}
+
+export function designPrompt({ project, handovers, idea }) {
+  return `${context(project, handovers)}
+
+## Your role
+You are the designer. The project manager drafted the proposal below and asked you for the design before it goes to the CEO. Read the repository first: find the design system and the screens closest to this work.
+
+## Proposal: ${idea.title}
+${idea.pitch}
+
+### Work order from the project manager
+${idea.plan}
+
+## Task
+Write the design spec a developer will build from. Reply with the spec only, in the language of the brief.`;
 }
 
 export function buildPrompt({ project, handovers, task, peers }) {

@@ -4,7 +4,7 @@ A company of headless Claude agents. You are the CEO.
 
 Bring a repository or one rough sentence. The project manager does the thinking: it reads the code, forms its own view of what the product needs, and keeps proposing work for as long as the project runs. That is the centre of this project.
 
-Each project gets a project manager and a team of developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
+Each project gets a project manager, a designer and a team of developers. The project manager reads the repository and proposes work. You approve or reject each proposal, or switch the project to autopilot and step out. Developers build what got approved, the project manager reviews it, and anything the two cannot settle comes back to your desk.
 
 ![The Boardroom: decisions waiting for the CEO, live agent activity, projects](docs/boardroom.png)
 
@@ -39,12 +39,27 @@ The app runs the same server inside itself on a private local port, so nothing e
 
 1. **Found a project.** Give it a name, a brief and a folder. Leave the folder empty and you get a fresh git workspace under `data/workspaces`.
 2. **Start it.** The project manager reads the repository (read-only tools) and returns proposals as structured output.
-3. **Decide.** Approve or reject in the Boardroom. A rejection can carry a reason, and the project manager reads it before the next round. On autopilot this step disappears.
-4. **Build.** A free developer picks up the task and runs in the project folder with `--permission-mode acceptEdits` and an allowlist of commands.
-5. **Review.** The project manager checks the diff against the work order. It approves, or sends the task back with exact instructions. The same developer resumes its session with `--resume`.
-6. **Escalate.** After the configured number of review rounds the task lands on your desk. Accept it, send it back, or cancel it.
+3. **Design.** A proposal that changes what a person sees or does goes to the designer first, who writes a design spec for it. The spec travels with the task to the developer.
+4. **Decide.** Approve or reject in the Boardroom. A rejection can carry a reason, and the project manager reads it before the next round. On autopilot this step disappears.
+5. **Build.** A free developer picks up the task and runs in the project folder with `--permission-mode acceptEdits` and an allowlist of commands.
+6. **Review.** The project manager checks the diff against the work order. It approves, or sends the task back with exact instructions. The same developer resumes its session with `--resume`.
+7. **Escalate.** After the configured number of review rounds the task lands on your desk. Accept it, send it back, or cancel it.
 
 You can also send a **directive**: a task you wrote yourself. It skips approval.
+
+## The agents and their master prompts
+
+Each role has a standing job description that rides along on every run as an appended system prompt.
+
+| Role | File | What it sets |
+| --- | --- | --- |
+| Project manager | `src/roles/project-manager.md` | A six-step method (intent, survey, diagnosis, options, sequence, selection), architectural judgement, how to write a work order, how to review |
+| Designer | `src/roles/designer.md` | Read the existing design system first, cover every state, write exact copy, hand over a spec a developer can build from |
+| Developer | `src/roles/developer.md` | Understand before changing, smallest change that meets the order, verify for real, report what happened |
+
+To rewrite a role for your company, put a file with the same name in `<data dir>/roles/`. It replaces the built-in one from the next run, no restart needed.
+
+The designer has the Skill tool, so it applies design skills installed in your Claude Code (for example a house style skill) when one fits. It reads a `DESIGN.md`, tokens file or stylesheet in the repository as the source of truth. It does not use claude.ai/design: that product syncs design systems on request from a person and has no headless mode an unattended agent could drive.
 
 ## Finding your way around
 
@@ -116,7 +131,8 @@ src/orchestrator.js  the loop: propose, approve, build, review, escalate
 src/claude.js        headless runner and its demo stand-in
 src/budget.js        subscription readings and the gate
 src/history.js       Claude Code sessions, claude.ai exports, notes
-src/prompts.js       what each role is told
+src/roles/           master prompt per role
+src/prompts.js       the task each run is given
 public/app.js        views
 public/dom.js        element builder, keyed morph, layout animations
 public/motion.js     springs and the draggable sheet

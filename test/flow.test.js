@@ -137,3 +137,30 @@ test('the archive reads Claude Code sessions and claude.ai exports, and hands th
   assert.equal((await post('/api/projects', { name: 'Evil' }, { Origin: 'https://evil.example' })).status, 403);
   close();
 });
+
+test('a proposal that needs design goes through the designer, and every agent gets its master prompt', async () => {
+  const seen = [];
+  const base = createMockRunner({ delay: 5 });
+  const runner = (o) => {
+    seen.push({ kind: o.kind, system: o.system });
+    return base(o);
+  };
+  const { db, orch, close } = company(runner);
+  const id = orch.createProject({ name: 'Studio', devs: 1 });
+  assert.equal(db.get("SELECT COUNT(*) AS n FROM agents WHERE role = 'designer'").n, 1);
+  orch.setStatus(id, 'active');
+  await until(() => db.get("SELECT COUNT(*) AS n FROM ideas WHERE status = 'proposed'").n === 3);
+
+  const designed = db.all('SELECT * FROM ideas WHERE design IS NOT NULL');
+  assert.equal(designed.length, 1, 'only the proposal flagged needs_design visits the designer');
+  orch.decideIdea(designed[0].id, true);
+  assert.match(db.get('SELECT spec FROM tasks WHERE idea_id = ?', designed[0].id).spec, /Design spec from the designer/);
+  await until(() => seen.some((r) => r.kind === 'review'));
+
+  const prompt = (kind) => seen.find((r) => r.kind === kind).system;
+  assert.match(prompt('ideate'), /^# Project Manager/);
+  assert.match(prompt('review'), /^# Project Manager/);
+  assert.match(prompt('design'), /^# Designer/);
+  assert.match(prompt('build'), /^# Developer/);
+  close();
+});

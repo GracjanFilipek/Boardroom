@@ -322,10 +322,12 @@ function ideaCard(idea, showProject, i = 0) {
       avatar('pm', 'xs'), h('strong', null, 'Project Manager'), 'proposes',
       showProject ? h('span', { class: 'chip accent' }, idea.project_name) : null,
       h('span', { class: 'chip' }, { S: 'Small', M: 'Medium', L: 'Large' }[idea.effort] ?? idea.effort),
+      idea.design ? h('span', { class: 'chip' }, 'Designed') : null,
       h('span', null, ago(idea.created_at))),
     h('h3', null, idea.title),
     idea.pitch ? h('p', { class: 'pitch' }, idea.pitch) : null,
     idea.plan ? h('details', null, h('summary', null, icon('chevron'), 'Work order'), h('div', { class: 'plan' }, idea.plan)) : null,
+    idea.design ? h('details', null, h('summary', null, icon('chevron'), 'Design spec'), h('div', { class: 'plan' }, idea.design)) : null,
     h('div', { class: 'actions' },
       h('button', { class: 'btn go', onclick: () => decide(idea, true) }, icon('check'), 'Approve'),
       h('button', { class: 'btn bad', onclick: () => rejectSheet(idea) }, icon('x'), 'Reject')),
@@ -400,7 +402,9 @@ function projectView(r) {
   const { project: p, agents, ideas, tasks, events, handovers, spend } = S.detail;
   const summary = S.state.projects.find((x) => x.id === p.id) ?? { ...p, working: 0 };
   const pm = agents.find((a) => a.role === 'pm');
+  const designer = agents.find((a) => a.role === 'designer');
   const devs = agents.filter((a) => a.role === 'dev');
+  const inDesign = ideas.filter((i) => i.status === 'design');
   const active = p.status === 'active';
   const proposed = ideas.filter((i) => i.status === 'proposed');
   const attention = tasks.filter((t) => ['escalated', 'failed'].includes(t.status));
@@ -412,7 +416,7 @@ function projectView(r) {
 
   const node = (role, name, title, a) => {
     const job = a?.job;
-    const what = job?.kind === 'ideate' ? 'Drafting proposals' : job?.kind === 'review' ? `Reviewing “${taskTitle(job.taskId)}”` : job?.kind === 'build' ? `Building “${taskTitle(job.taskId)}”` : '';
+    const what = job?.kind === 'ideate' ? 'Drafting proposals' : job?.kind === 'design' ? `Designing “${job.label}”` : job?.kind === 'review' ? `Reviewing “${taskTitle(job.taskId)}”` : job?.kind === 'build' ? `Building “${taskTitle(job.taskId)}”` : '';
     const idle = !a ? null : !active ? 'Off the clock' : a.role === 'pm' && proposed.length ? 'Waiting for you' : 'Idle';
     return h('div', { class: `node${job ? ' live' : ''}` },
       avatar(role, '', Boolean(job), name),
@@ -510,7 +514,10 @@ function projectView(r) {
               h('button', { 'aria-selected': String(p.approval === 'ceo'), onclick: setApproval('ceo') }, 'You approve'),
               h('button', { 'aria-selected': String(p.approval === 'auto'), onclick: setApproval('auto') }, 'Autopilot')),
             h('div', { class: `wire${pm.job ? ' live' : ''}` })),
-          node('pm', pm.name, 'Runs the roadmap', pm),
+          h('div', { class: 'org-pair' },
+            h('div'),
+            node('pm', pm.name, 'Runs the roadmap', pm),
+            designer ? h('div', { class: 'org-side' }, h('div', { class: `hwire${designer.job ? ' live' : ''}` }), node('designer', designer.name, 'Designs with the manager', designer)) : h('div')),
           h('div', { class: `wire${devs.some((d) => d.job) ? ' live' : ''}` }),
           h('div', { class: 'org-children' }, devs.map((d) => h('div', { class: `org-child${d.job ? ' live' : ''}` }, node('dev', d.name, 'Developer', d))))))),
       h('div', { class: 'split' },
@@ -518,6 +525,8 @@ function projectView(r) {
           h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length)) : null)),
           proposed.length + attention.length
             ? h('div', { class: 'stack' }, attention.map((t, i) => attentionCard(t, false, i)), proposed.map((idea, i) => ideaCard(idea, false, i)))
+            : inDesign.length
+              ? empty('idea', `${inDesign.length} ${inDesign.length === 1 ? 'proposal is' : 'proposals are'} with the designer`, 'You see each one once its design spec is written.')
             : p.approval === 'auto'
               ? empty('bolt', 'Autopilot is on', 'Proposals go straight to the developers.')
               : empty('idea', active ? 'No proposals right now' : 'The team is off the clock', active ? 'The project manager brings the next round here.' : 'Start the project and the project manager drafts proposals.')),

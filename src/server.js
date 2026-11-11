@@ -24,7 +24,7 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
   const agentsOf = (projectId) =>
     db.all('SELECT * FROM agents WHERE project_id = ? ORDER BY id', projectId).map((a) => {
       const job = orch.busy().get(a.id);
-      return { ...a, job: job ? { kind: job.kind, taskId: job.taskId, since: job.since } : null };
+      return { ...a, job: job ? { kind: job.kind, taskId: job.taskId, label: job.label, since: job.since } : null };
     });
 
   function state() {
@@ -75,7 +75,7 @@ export function createApp({ dataDir, runner, mock = false, configDir } = {}) {
     return {
       project: { ...project, default_tools: DEFAULT_DEV_TOOLS },
       agents: agentsOf(id),
-      ideas: db.all("SELECT * FROM ideas WHERE project_id = ? AND (status = 'proposed' OR author = 'pm') ORDER BY status = 'proposed' DESC, id DESC LIMIT 40", id),
+      ideas: db.all("SELECT * FROM ideas WHERE project_id = ? AND (status IN ('proposed', 'design') OR author = 'pm') ORDER BY status = 'proposed' DESC, id DESC LIMIT 40", id),
       tasks: db.all("SELECT t.*, i.effort FROM tasks t LEFT JOIN ideas i ON i.id = t.idea_id WHERE t.project_id = ? AND t.status != 'cancelled' ORDER BY t.id DESC LIMIT 120", id),
       events: db.all('SELECT * FROM events WHERE project_id = ? ORDER BY id DESC LIMIT 200', id),
       handovers: db.all('SELECT * FROM handovers WHERE project_id = ? ORDER BY id DESC', id),

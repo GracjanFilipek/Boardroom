@@ -36,12 +36,13 @@ const FACES = {
   cap: ['..........', '..cccccc..', '.cccccccc.', 'cccccccccc', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
   glasses: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.wewsswew.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
   pm: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.wewsswew.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccwtwcc.', 'ccccwtwccc'],
+  designer: ['..bbbbbb..', '.bbbbbbbbb', '.hbbbbbbh.', '.hssssssh.', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.kkkkkkkk.', 'kkkkkkkkkk'],
   ceo: ['.g..gg..g.', '.gggggggg.', '.gggggggg.', '.hssssssh.', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.kkkwtwkk.', 'kkkkwtwkkk'],
 };
 const SKIN = ['#f1c7a1', '#dba779', '#b07a4f', '#7a5236', '#f5d9bd'];
 const HAIR = ['#2a2019', '#5b3b20', '#a85a1c', '#d2ac58', '#8b8b86', '#b33a2e'];
 const SHIRT = ['#2f66c9', '#1f8f62', '#d07a26', '#7d55b5', '#bd403a', '#2a8496'];
-const FIXED = { e: '#1b1a17', m: '#8c3f36', w: '#f4f2ec', t: '#bd403a', g: '#e2b33c', k: '#26252b' };
+const FIXED = { b: '#bd403a', e: '#1b1a17', m: '#8c3f36', w: '#f4f2ec', t: '#bd403a', g: '#e2b33c', k: '#26252b' };
 
 /** One path of merged horizontal runs for every cell that matches `cell`. */
 function runs(rows, cell) {
@@ -100,6 +101,9 @@ export function portrait(role, name = '') {
   if (role === 'ceo') {
     rows = FACES.ceo;
     colors = { h: HAIR[1], s: SKIN[0] };
+  } else if (role === 'designer') {
+    rows = FACES.designer;
+    colors = { h: HAIR[2], s: SKIN[4] };
   } else if (role === 'pm') {
     rows = FACES.pm;
     colors = { h: HAIR[0], s: SKIN[1], c: '#3d4a5c' };

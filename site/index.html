@@ -306,7 +306,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     </div>
     <div class="grid traits">
       <article><span class="ico" data-icon="search"></span><h3>It reads before it proposes</h3><p>Every round starts in the code. The manager knows what exists, what shipped last and what is half-finished.</p></article>
-      <article><span class="ico" data-icon="idea"></span><h3>It decides the how, too</h3><p>Each idea arrives as a work order: steps, files to touch, how to verify. A developer starts without asking you anything.</p></article>
+      <article><span class="ico" data-icon="idea"></span><h3>It decides the how, too</h3><p>Each idea arrives as a work order with the architecture decisions already made: data shapes, files to touch, how to verify.</p></article>
       <article><span class="ico" data-icon="back"></span><h3>It keeps coming back</h3><p>When the board runs low, it drafts the next round. Your rejections and their reasons shape what it proposes next.</p></article>
     </div>
   </section>
@@ -315,7 +315,7 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     <span class="label">How work flows</span>
     <h2>From idea to shipped, and only one step needs you.</h2>
     <ol class="flow">
-      <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders a developer can follow without asking questions.</p></li>
+      <li><span class="label">01</span><span class="ico" data-icon="idea"></span><h3>The manager proposes</h3><p>It reads the repository and your brief, then writes work orders. Anything a person will see goes to the designer, who adds the design spec.</p></li>
       <li><span class="label">02</span><span class="ico" data-icon="crown"></span><h3>You decide</h3><p>Approve or reject from the Boardroom. A rejection can carry a reason, and the manager reads it before the next round.</p></li>
       <li><span class="label">03</span><span class="ico" data-icon="terminal"></span><h3>Developers build</h3><p>A free developer picks up the task, edits files in the project folder, runs the tests and commits.</p></li>
       <li><span class="label">04</span><span class="ico" data-icon="check"></span><h3>The manager reviews</h3><p>It checks the diff against the work order. Work that fails review goes back. A dispute that will not settle comes to you.</p></li>
@@ -358,10 +358,11 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
 
   <section class="wrap" id="team">
     <span class="label">Your first hires</span>
-    <h2>Each project gets a manager and up to six developers.</h2>
+    <h2>Each project gets a manager, a designer and up to six developers.</h2>
     <div class="staff">
       <figure><span class="face lg" data-face="ceo"></span><figcaption>You<span>Chief Executive</span></figcaption></figure>
       <figure><span class="face lg" data-face="pm"></span><figcaption>Project Manager<span>Runs the roadmap</span></figcaption></figure>
+      <figure><span class="face lg" data-face="designer"></span><figcaption>Designer<span>Designs with the manager</span></figcaption></figure>
       <figure><span class="face lg" data-face="dev:Ada"></span><figcaption>Ada<span>Developer</span></figcaption></figure>
       <figure><span class="face lg" data-face="dev:Linus"></span><figcaption>Linus<span>Developer</span></figcaption></figure>
       <figure><span class="face lg" data-face="dev:Grace"></span><figcaption>Grace<span>Developer</span></figcaption></figure>
@@ -419,12 +420,13 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
     cap: ['..........', '..cccccc..', '.cccccccc.', 'cccccccccc', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
     glasses: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.wewsswew.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccccccc.', 'cccccccccc'],
     pm: ['..........', '..hhhhhh..', '.hhhhhhhh.', '.hssssssh.', '.wewsswew.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.cccwtwcc.', 'ccccwtwccc'],
+    designer: ['..bbbbbb..', '.bbbbbbbbb', '.hbbbbbbh.', '.hssssssh.', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.kkkkkkkk.', 'kkkkkkkkkk'],
     ceo: ['.g..gg..g.', '.gggggggg.', '.gggggggg.', '.hssssssh.', '.ssessess.', '.ssssssss.', '.sssmmsss.', '..ssssss..', '.kkkwtwkk.', 'kkkkwtwkkk'],
   };
   const SKIN = ['#f1c7a1', '#dba779', '#b07a4f', '#7a5236', '#f5d9bd'];
   const HAIR = ['#2a2019', '#5b3b20', '#a85a1c', '#d2ac58', '#8b8b86', '#b33a2e'];
   const SHIRT = ['#2f66c9', '#1f8f62', '#d07a26', '#7d55b5', '#bd403a', '#2a8496'];
-  const FIXED = { e: '#1b1a17', m: '#8c3f36', w: '#f4f2ec', t: '#bd403a', g: '#e2b33c', k: '#26252b' };
+  const FIXED = { b: '#bd403a', e: '#1b1a17', m: '#8c3f36', w: '#f4f2ec', t: '#bd403a', g: '#e2b33c', k: '#26252b' };
   const runs = (rows, cell) => {
     let d = '';
     rows.forEach((row, y) => {
@@ -448,8 +450,8 @@ footer { margin-top: 5rem; border-top: 1px solid var(--line-strong); padding-blo
   for (const el of document.querySelectorAll('[data-face]')) {
     const [role, name] = el.dataset.face.split(':');
     const n = hash(name || role);
-    const rows = role === 'ceo' ? FACES.ceo : role === 'pm' ? FACES.pm : [FACES.short, FACES.long, FACES.cap, FACES.glasses][n % 4];
-    const colors = role === 'ceo' ? { h: HAIR[1], s: SKIN[0] } : role === 'pm' ? { h: HAIR[0], s: SKIN[1], c: '#3d4a5c' }
+    const rows = role === 'ceo' ? FACES.ceo : role === 'pm' ? FACES.pm : role === 'designer' ? FACES.designer : [FACES.short, FACES.long, FACES.cap, FACES.glasses][n % 4];
+    const colors = role === 'ceo' ? { h: HAIR[1], s: SKIN[0] } : role === 'designer' ? { h: HAIR[2], s: SKIN[4] } : role === 'pm' ? { h: HAIR[0], s: SKIN[1], c: '#3d4a5c' }
       : { h: HAIR[(n >>> 3) % HAIR.length], s: SKIN[(n >>> 7) % SKIN.length], c: SHIRT[(n >>> 11) % SHIRT.length] };
     el.innerHTML = svg([...new Set(rows.join('').replace(/\./g, ''))].map((c) => `<path d="${runs(rows, c)}" fill="${colors[c] || FIXED[c]}"/>`).join(''));
   }

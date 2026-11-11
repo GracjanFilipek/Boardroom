@@ -1,11 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { IDEAS_SCHEMA, REVIEW_SCHEMA, ideatePrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
+import { IDEAS_SCHEMA, REVIEW_SCHEMA, ideatePrompt, designPrompt, buildPrompt, revisePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
+import { createRoles } from './roles.js';
 
 export const DEFAULT_DEV_TOOLS =
   'Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git add *),Bash(git commit *),Bash(npm test *),Bash(npm run *)';
 const PM_READ_TOOLS = 'Read,Glob,Grep';
+const DESIGNER_TOOLS = 'Read,Glob,Grep,Skill';
 const PM_REVIEW_ALLOWED = 'Read,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *)';
 const OPEN = ['queued', 'in_progress', 'review', 'changes', 'escalated'];
 const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken'];
@@ -17,6 +19,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
   /** projectId -> timestamp; set after a failed PM run so a broken setup does not burn the budget */
   const cooldown = new Map();
   let ticking = false;
+  const rolePrompt = createRoles(dataDir);
 
   const emit = (projectId, type, text, extra = {}) => {
     const row = { project_id: projectId, type, text: clip(text), ts: now(), task_id: extra.taskId ?? null, agent_id: extra.agentId ?? null };
@@ -43,6 +46,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
     }
     const id = db.insert('projects', { name, brief: String(input.brief || ''), workdir, created_at: now() });
     db.insert('agents', { project_id: id, role: 'pm', name: 'Project Manager' });
+    db.insert('agents', { project_id: id, role: 'designer', name: 'Designer' });
     updateProject(id, { devs: 2, ...input });
     emit(id, 'ceo', `The CEO founded the project “${name}”.`);
     return id;
@@ -107,7 +111,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
         project_id: idea.project_id,
         idea_id: idea.id,
         title: idea.title,
-        spec: `${idea.pitch}\n\n${idea.plan}`.trim(),
+        spec: [idea.pitch, idea.plan, idea.design ? `## Design spec from the designer\n${idea.design}` : ''].filter(Boolean).join('\n\n'),
         created_at: now(),
         updated_at: now(),
       });
@@ -155,17 +159,18 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
   const handoversOf = (projectId) => db.all('SELECT * FROM handovers WHERE project_id = ? ORDER BY id DESC', projectId);
 
   /** Starts one run for an agent and wires bookkeeping around it. */
-  function start({ project, agent, task, kind, options, onDone }) {
+  function start({ project, agent, task, kind, label, options, onDone }) {
     const abort = new AbortController();
     const runId = db.insert('runs', { project_id: project.id, agent_id: agent?.id ?? null, task_id: task?.id ?? null, kind, started_at: now() });
     const key = agent?.id ?? `run-${runId}`;
-    busy.set(key, { kind, taskId: task?.id ?? null, projectId: project.id, since: now(), abort });
+    busy.set(key, { kind, taskId: task?.id ?? null, label: label ?? null, projectId: project.id, since: now(), abort });
     bus.emit('change', { projectId: project.id });
 
     const ctx = { taskId: task?.id, agentId: agent?.id };
     const promise = runner({
       ...options,
       kind,
+      system: rolePrompt(agent?.role),
       cwd: project.workdir,
       model: project.model || undefined,
       signal: abort.signal,
@@ -201,6 +206,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
 
   function ideate(project, pm) {
     const count = project.ideas_per_round;
+    const designer = db.get("SELECT id FROM agents WHERE project_id = ? AND role = 'designer'", project.id);
     emit(project.id, 'ideate', 'The project manager is reading the repository and drafting proposals.', { agentId: pm.id });
     start({
       project,
@@ -235,11 +241,39 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
             pitch: String(idea.pitch ?? ''),
             plan: String(idea.plan ?? ''),
             effort: ['S', 'M', 'L'].includes(idea.effort) ? idea.effort : 'M',
+            status: idea.needs_design && designer ? 'design' : 'proposed',
             created_at: now(),
           });
-          emit(project.id, 'idea', `Proposal: ${idea.title}`, { agentId: pm.id });
-          if (fresh.approval === 'auto') decideIdea(id, true, 'auto');
+          emit(project.id, 'idea', idea.needs_design && designer ? `Proposal: ${idea.title}. Sent to the designer first.` : `Proposal: ${idea.title}`, { agentId: pm.id });
+          if (!(idea.needs_design && designer) && fresh.approval === 'auto') decideIdea(id, true, 'auto');
         }
+      },
+    });
+  }
+
+  /** The designer writes the design spec for a proposal before the CEO sees it. */
+  function design(project, designer, idea) {
+    emit(project.id, 'design', `Designing “${idea.title}”.`, { agentId: designer.id });
+    start({
+      project,
+      agent: designer,
+      kind: 'design',
+      label: idea.title,
+      options: {
+        prompt: designPrompt({ project, handovers: handoversOf(project.id), idea }),
+        tools: DESIGNER_TOOLS,
+        allowedTools: DESIGNER_TOOLS,
+        maxTurns: 40,
+      },
+      onDone(res) {
+        const current = db.get('SELECT * FROM ideas WHERE id = ?', idea.id);
+        if (!current || current.status !== 'design') return;
+        // A failed design run must not strand the proposal: it goes to the CEO without a spec.
+        const spec = res.ok && res.result ? res.result : null;
+        db.update('ideas', idea.id, { status: 'proposed', design: spec });
+        if (spec) emit(project.id, 'design', `Design spec ready for “${idea.title}”.`, { agentId: designer.id });
+        const fresh = db.get('SELECT approval FROM projects WHERE id = ?', project.id);
+        if (fresh.approval === 'auto') decideIdea(idea.id, true, 'auto');
       },
     });
   }
@@ -330,7 +364,7 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
 
   function shouldIdeate(project, devCount) {
     if ((cooldown.get(project.id) ?? 0) > now()) return false;
-    if (db.get("SELECT COUNT(*) AS n FROM ideas WHERE project_id = ? AND status = 'proposed'", project.id).n > 0) return false;
+    if (db.get("SELECT COUNT(*) AS n FROM ideas WHERE project_id = ? AND status IN ('proposed', 'design')", project.id).n > 0) return false;
     const waiting = db.get("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('queued', 'changes')", project.id).n;
     const active = db.get("SELECT COUNT(*) AS n FROM tasks WHERE project_id = ? AND status IN ('in_progress', 'review')", project.id).n;
     if (waiting > 0 || active >= devCount) return false;
@@ -361,6 +395,11 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
           if (inReview) review(project, pm, inReview);
           else if (shouldIdeate(project, devs.length)) ideate(project, pm);
         }
+        const designer = agents.find((a) => a.role === 'designer');
+        if (designer && slots() > 0 && !busy.has(designer.id)) {
+          const waiting = db.get("SELECT * FROM ideas WHERE project_id = ? AND status = 'design' ORDER BY id LIMIT 1", project.id);
+          if (waiting) design(project, designer, waiting);
+        }
         for (const dev of devs) {
           if (slots() <= 0) break;
           if (busy.has(dev.id)) continue;
@@ -380,6 +419,10 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, now = () 
   function recover() {
     db.run("UPDATE runs SET status = 'interrupted', ended_at = ? WHERE status = 'running'", now());
     db.run("UPDATE tasks SET status = CASE WHEN report IS NULL THEN 'queued' ELSE 'changes' END WHERE status = 'in_progress'");
+    // Projects founded before the designer role existed get one now.
+    for (const p of db.all("SELECT id FROM projects WHERE id NOT IN (SELECT project_id FROM agents WHERE role = 'designer')")) {
+      db.insert('agents', { project_id: p.id, role: 'designer', name: 'Designer' });
+    }
   }
 
   return {

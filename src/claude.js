@@ -131,6 +131,7 @@ export function createMockRunner({ delay = 900 } = {}) {
             pitch: `Users ask for ${t.toLowerCase()} in support tickets. Shipping it removes a daily annoyance.`,
             plan: `1. Find the code that owns this area.\n2. Implement ${t.toLowerCase()}.\n3. Add a test.\n4. Update the README.`,
             effort: ['S', 'M', 'L'][(n + i) % 3],
+            needs_design: i === 0,
           };
         }),
       };
@@ -139,6 +140,9 @@ export function createMockRunner({ delay = 900 } = {}) {
       structured = approve
         ? { verdict: 'approve', notes: 'Matches the spec. Tests pass.' }
         : { verdict: 'revise', notes: 'The happy path works. Add a test for the empty input case.' };
+    } else if (o.kind === 'design') {
+      o.onEvent?.({ type: 'tool', text: 'Read public/app.css' });
+      result = 'Goal\nOne clear action per screen.\n\nLayout\nReuse the existing card and the primary button.\n\nStates\nEmpty, loading, done, error.\n\nCopy\nButton: "Undo". Toast: "Restored."';
     } else if (o.kind === 'summarize') {
       result = `Handover brief (demo)\n\n- Goal: carried over from the imported chat.\n- Decisions so far: see transcript.\n- Next step: pick up the first open question.`;
     } else {

@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS agents (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  role TEXT NOT NULL,                             -- pm | dev
+  role TEXT NOT NULL,                             -- pm | designer | dev
   name TEXT NOT NULL
 );
 
@@ -37,7 +37,8 @@ CREATE TABLE IF NOT EXISTS ideas (
   plan TEXT NOT NULL DEFAULT '',
   effort TEXT NOT NULL DEFAULT 'M',
   author TEXT NOT NULL DEFAULT 'pm',              -- pm | ceo
-  status TEXT NOT NULL DEFAULT 'proposed',        -- proposed | approved | rejected
+  design TEXT,                                    -- design spec written by the designer
+  status TEXT NOT NULL DEFAULT 'proposed',        -- design | proposed | approved | rejected
   decided_by TEXT,                                -- ceo | auto
   reason TEXT,
   created_at INTEGER NOT NULL,
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS runs (
   project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
   agent_id INTEGER,
   task_id INTEGER,
-  kind TEXT NOT NULL,                             -- ideate | build | review | summarize
+  kind TEXT NOT NULL,                             -- ideate | design | build | review | summarize
   status TEXT NOT NULL DEFAULT 'running',         -- running | ok | error | interrupted
   cost_usd REAL NOT NULL DEFAULT 0,
   input_tokens INTEGER NOT NULL DEFAULT 0,
@@ -116,6 +117,8 @@ export function openDb(dataDir) {
   const raw = new DatabaseSync(dataDir === ':memory:' ? ':memory:' : path.join(dataDir, 'corp.db'));
   raw.exec('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
   raw.exec(SCHEMA);
+  // Databases created before the designer joined lack this column.
+  if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();
   const stmt = (sql) => {

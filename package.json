@@ -13,7 +13,10 @@
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
     "app": "electron .",
     "app:demo": "CORP_RUNNER=mock electron .",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "postinstall": "node scripts/name-dev-app.mjs",
+    "preapp": "node scripts/name-dev-app.mjs",
+    "preapp:demo": "node scripts/name-dev-app.mjs"
   },
   "devDependencies": {
     "electron": "^45.3.0",

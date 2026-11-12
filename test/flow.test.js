@@ -8,6 +8,7 @@ import { createApp } from '../src/server.js';
 import { createMockRunner } from '../src/claude.js';
 import { openDb } from '../src/db.js';
 import { createBudget } from '../src/budget.js';
+import { parseGuard } from '../src/orchestrator.js';
 import { execFileSync } from 'node:child_process';
 import { rulesFor, covered, parseRules, claudeCodeRules } from '../src/permissions.js';
 
@@ -400,5 +401,51 @@ test('a project can staff twelve developers', () => {
   const id = orch.createProject({ name: 'Big', devs: 40 });
   assert.equal(db.get("SELECT COUNT(*) AS n FROM agents WHERE project_id = ? AND role = 'dev'", id).n, 12);
   assert.equal(new Set(db.all("SELECT name FROM agents WHERE project_id = ?", id).map((a) => a.name)).size, 14, 'manager, designer and twelve distinct developers');
+  close();
+});
+
+test('the package guard runs on every agent, logs hallucinated names and asks the CEO about suspicious ones', async () => {
+  const verdict = [
+    'slopsquat-guard blocked this install.',
+    'BLOCK  react-pretty-state: does not exist on the registry (likely a hallucinated name)',
+    'CHECK  reactjs: no source repository listed; name is close to the popular package "react" [age 10 years, 1 version]',
+    'CHECK  "x@git+https://example.com/x.git" (npm install) comes from a URL or git repository, not the registry',
+    'Do not retry with another guessed name.',
+  ].join('\n');
+  assert.deepEqual(parseGuard(verdict), {
+    blocked: [{ name: 'react-pretty-state', why: 'does not exist on the registry (likely a hallucinated name)' }],
+    review: [{ name: 'reactjs', why: 'no source repository listed; name is close to the popular package "react" [age 10 years, 1 version]' }],
+    notes: ['"x@git+https://example.com/x.git" (npm install) comes from a URL or git repository, not the registry'],
+  });
+
+  const runs = [];
+  const base = createMockRunner({ delay: 5 });
+  const runner = async (o) => {
+    runs.push({ kind: o.kind, hook: o.settings?.hooks?.PreToolUse?.[0]?.hooks?.[0]?.command, strict: o.env?.SLOPSQUAT_GUARD_STRICT, allow: o.env?.SLOPSQUAT_GUARD_ALLOW });
+    if (o.kind === 'build' && runs.filter((r) => r.kind === 'build').length === 1) {
+      const denial = { tool: 'Bash', command: 'npm install react-pretty-state reactjs', guard: verdict };
+      if (o.onDenial(denial)) return { ok: false, paused: true, error: 'paused for permission', sessionId: 's1', denials: [denial] };
+    }
+    return base(o);
+  };
+  const { db, orch, close } = company(runner);
+  const id = orch.createProject({ name: 'Guarded', devs: 1 });
+  orch.addDirective(id, { title: 'Add state library' });
+  orch.setStatus(id, 'active');
+  await until(() => db.get('SELECT status FROM tasks').status === 'blocked');
+
+  assert.ok(runs.every((r) => r.hook?.includes('slopsquat-guard') && r.strict === '1'), 'every agent run carries the hook');
+  const requests = db.all("SELECT rule, example FROM permission_requests WHERE status = 'pending'");
+  assert.deepEqual(requests.map((r) => r.rule), ['package:reactjs'], 'only the package that exists becomes a question, and no blanket npm rule is requested');
+  assert.equal(db.get("SELECT COUNT(*) AS n FROM events WHERE text LIKE '%from installing react-pretty-state%'").n, 1);
+
+  assert.equal(orch.allowAll(id), 0, 'Allow all never trusts a package');
+  orch.decidePermission(db.get('SELECT id FROM permission_requests').id, true);
+  assert.equal(db.get('SELECT trusted_packages FROM projects').trusted_packages, 'reactjs');
+  await until(() => db.get('SELECT status FROM tasks').status === 'done');
+  assert.equal(runs.filter((r) => r.kind === 'build').at(-1).allow, 'reactjs');
+
+  orch.updateProject(id, { guard: '0', trusted_packages: 'ok-pkg, @scope/tool, bad name; rm -rf' });
+  assert.equal(db.get('SELECT trusted_packages FROM projects').trusted_packages, 'ok-pkg,@scope/tool,bad,rm', 'anything that is not a package name is dropped');
   close();
 });

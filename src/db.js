@@ -151,6 +151,10 @@ export function openDb(dataDir) {
     raw.exec("ALTER TABLE projects ADD COLUMN model_dev TEXT NOT NULL DEFAULT 'opus'");
     raw.exec("UPDATE projects SET model_pm = model, model_designer = model, model_dev = model WHERE model != ''");
   }
+  if (!raw.prepare('PRAGMA table_info(projects)').all().some((c) => c.name === 'guard')) {
+    raw.exec('ALTER TABLE projects ADD COLUMN guard INTEGER NOT NULL DEFAULT 1');
+    raw.exec("ALTER TABLE projects ADD COLUMN trusted_packages TEXT NOT NULL DEFAULT ''");
+  }
   if (!raw.prepare('PRAGMA table_info(ideas)').all().some((c) => c.name === 'design')) raw.exec('ALTER TABLE ideas ADD COLUMN design TEXT');
 
   const cache = new Map();

@@ -132,6 +132,21 @@ To keep a project strict, switch its settings to "Only the list below". "Skip al
 
 Several developers share one working tree. They are told to stage only their own files. For tasks that touch the same code, run one developer.
 
+## Package guard
+
+Language models invent package names that sound right. Attackers register those names on npm and put a payload in the install script. The attack is called slopsquatting, and a team of unattended agents is exactly who it targets.
+
+Booardroom ships with [slopsquat-guard](https://github.com/GracjanFilipek/slopsquat-guard) built in. It runs as a hook in front of every shell command of every agent, so the model cannot skip it.
+
+- **A package that does not exist is blocked.** The developer is told to find the real name and the block shows in the Activity feed.
+- **A package that exists but looks wrong stops the developer and asks you.** New on npm, almost no downloads, a name one letter away from a popular package, an install script, no source repository: a card on your Desk lists the reasons with a link to npmjs.com. Trust it and the developer continues with it; keep it out and the developer continues without it.
+- **Allow all never trusts a package.** Each one needs its own decision.
+- **Packages already in your lockfile are skipped**, so ordinary installs stay quiet.
+
+It covers `npm`, `pnpm`, `yarn` and `bun` installs, `npx`-style runs, and a bare `npm install` after an agent edited `package.json`. Trusted packages and the on/off switch are in project settings.
+
+It is one layer. It does not read package source, and an install hidden inside a script or Makefile gets past it. The guard's own README lists the limits.
+
 ## GitHub
 
 Agents do not sign in to GitHub and do not push. Booardroom holds your account and does both itself, which is why a developer can no longer get stuck on authentication.
@@ -164,6 +179,7 @@ The server binds to `127.0.0.1` and has no login. It refuses cross-origin writes
 ```
 electron/main.js     desktop shell
 site/index.html      landing page, one self-contained file
+vendor/slopsquat-guard  the package check, copied from its own repository
 vercel.json          serves site/ on Vercel, no build step
 src/server.js        HTTP API, live updates, static files
 src/orchestrator.js  the loop: propose, approve, build, review, escalate

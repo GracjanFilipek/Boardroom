@@ -15,6 +15,7 @@ import { spawn } from 'node:child_process';
  * @param {object} [o.schema]          JSON Schema; the reply arrives in `structured`
  * @param {string} [o.resume]          session id to continue
  * @param {string} [o.system]          appended system prompt
+ * @param {object} [o.settings]          extra Claude Code settings for the run, e.g. hooks
  * @param {Record<string, string>} [o.env]  extra environment for the run, e.g. GitHub credentials
  * @param {AbortSignal} [o.signal]
  * @param {(e: {type: string, text?: string, info?: object}) => void} [o.onEvent]
@@ -30,6 +31,7 @@ export function runClaude(o) {
   if (o.schema) args.push('--json-schema', JSON.stringify(o.schema));
   if (o.resume) args.push('--resume', o.resume);
   if (o.system) args.push('--append-system-prompt', o.system);
+  if (o.settings) args.push('--settings', JSON.stringify(o.settings));
 
   return new Promise((resolve) => {
     const started = Date.now();
@@ -68,10 +70,12 @@ export function runClaude(o) {
         for (const block of Array.isArray(msg.message?.content) ? msg.message.content : []) {
           if (block.type !== 'tool_result' || !block.is_error) continue;
           const text = typeof block.content === 'string' ? block.content : '';
-          if (!rejected.has(block.tool_use_id) && !/requires approval|requested permissions/i.test(text)) continue;
+          if (!rejected.has(block.tool_use_id) && !/requires approval|requested permissions|slopsquat-guard/i.test(text)) continue;
           const call = calls.get(block.tool_use_id);
           if (!call) continue;
           const denial = { tool: call.name, command: call.input?.command ?? '', detail: call.input?.file_path ?? call.input?.url ?? '' };
+          // The package guard refuses through a hook and says why. Keep its words.
+          if (/slopsquat-guard/.test(text)) denial.guard = text.replace(/^PreToolUse:\w+ hook error: /, '');
           (out.denials ??= []).push(denial);
           // The caller may stop the run here, to ask a person and resume the session with the answer.
           if (o.onDenial?.(denial)) {
@@ -88,7 +92,8 @@ export function runClaude(o) {
         out.structured = msg.structured_output ?? null;
         out.costUsd = msg.total_cost_usd ?? 0;
         out.turns = msg.num_turns ?? 0;
-        if (!out.paused) out.denials = (msg.permission_denials ?? []).map((d) => ({ tool: d.tool_name, command: d.tool_input?.command ?? '', detail: d.tool_input?.file_path ?? d.tool_input?.url ?? '' }));
+        // The stream already named the refusals, with more detail than this summary carries.
+        if (!out.paused && !out.denials?.length) out.denials = (msg.permission_denials ?? []).map((d) => ({ tool: d.tool_name, command: d.tool_input?.command ?? '', detail: d.tool_input?.file_path ?? d.tool_input?.url ?? '' }));
         const u = msg.usage ?? {};
         out.inputTokens = (u.input_tokens ?? 0) + (u.cache_creation_input_tokens ?? 0) + (u.cache_read_input_tokens ?? 0);
         out.outputTokens = u.output_tokens ?? 0;

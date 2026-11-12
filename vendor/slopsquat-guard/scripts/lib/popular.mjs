@@ -1,0 +1,35 @@
+// Well-known package names used for lookalike detection.
+// Being on this list does not skip any check; it only stops a name from being
+// flagged as an imitation of itself.
+
+export const POPULAR = new Set([
+  'react', 'react-dom', 'react-router', 'react-router-dom', 'react-redux', 'react-query',
+  'react-hook-form', 'react-native', 'react-scripts', 'react-icons', 'react-select',
+  'next', 'nuxt', 'vue', 'vue-router', 'vuex', 'pinia', 'svelte', 'angular', 'solid-js',
+  'preact', 'astro', 'remix', 'gatsby', 'ember-source', 'alpinejs', 'htmx.org',
+  'redux', 'redux-thunk', 'redux-saga', 'mobx', 'zustand', 'jotai', 'recoil', 'immer', 'xstate',
+  'express', 'fastify', 'koa', 'hapi', 'nestjs', 'hono', 'socket.io', 'socket.io-client',
+  'body-parser', 'cookie-parser', 'cors', 'helmet', 'morgan', 'multer', 'compression',
+  'express-session', 'passport', 'jsonwebtoken', 'bcrypt', 'bcryptjs', 'argon2',
+  'axios', 'node-fetch', 'got', 'superagent', 'request', 'undici', 'cross-fetch', 'ky',
+  'lodash', 'underscore', 'ramda', 'moment', 'dayjs', 'date-fns', 'luxon', 'uuid', 'nanoid',
+  'chalk', 'colors', 'debug', 'commander', 'yargs', 'minimist', 'inquirer', 'ora', 'prompts',
+  'dotenv', 'cross-env', 'rimraf', 'mkdirp', 'glob', 'fs-extra', 'chokidar', 'semver', 'execa',
+  'shelljs', 'nodemon', 'concurrently', 'husky', 'lint-staged', 'pm2',
+  'typescript', 'ts-node', 'tsx', 'tslib', 'babel-core', 'core-js', 'regenerator-runtime',
+  'webpack', 'webpack-cli', 'webpack-dev-server', 'vite', 'rollup', 'esbuild', 'parcel', 'turbo',
+  'eslint', 'prettier', 'stylelint', 'jest', 'vitest', 'mocha', 'chai', 'sinon', 'cypress',
+  'playwright', 'puppeteer', 'selenium-webdriver', 'supertest', 'nock', 'jsdom', 'cheerio',
+  'tailwindcss', 'postcss', 'autoprefixer', 'sass', 'less', 'styled-components', 'bootstrap',
+  'classnames', 'clsx', 'framer-motion', 'three', 'chart.js', 'recharts', 'jquery',
+  'mongoose', 'mongodb', 'mysql', 'mysql2', 'sqlite3', 'better-sqlite3', 'redis', 'ioredis',
+  'sequelize', 'typeorm', 'prisma', 'knex', 'drizzle-orm', 'graphql', 'apollo-server',
+  'zod', 'yup', 'joi', 'ajv', 'validator', 'class-validator',
+  'aws-sdk', 'firebase', 'firebase-admin', 'stripe', 'openai', 'langchain', 'twilio',
+  'nodemailer', 'sharp', 'jimp', 'pdfkit', 'xlsx', 'csv-parse', 'papaparse', 'marked',
+  'markdown-it', 'highlight.js', 'handlebars', 'mustache', 'pug', 'ejs',
+  'winston', 'pino', 'bunyan', 'bluebird', 'async', 'rxjs', 'ws', 'qs', 'yaml', 'js-yaml',
+  'electron', 'discord.js', 'ethers', 'web3', 'crypto-js', 'node-forge', 'http-proxy',
+  'http-proxy-middleware', 'serve', 'http-server', 'live-server', 'create-react-app',
+  'create-vite', 'create-next-app', 'eslint-plugin-react', 'eslint-config-prettier',
+]);

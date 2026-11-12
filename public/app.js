@@ -326,7 +326,7 @@ function boardView() {
       h('div', { class: 'stat' }, h('div', { class: 'tile' }, icon('gauge')), h('b', null, num(budget.today.usd, 'usd')), h('span', null, `${budget.today.runs} runs today, API prices`))),
     h('div', { class: 'split' },
       h('div', null,
-        h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', inbox.length ? h('span', { class: 'count hot' }, String(inbox.length)) : null), allowAllButton(inbox.filter((i) => i.kind === 'permission').length)),
+        h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', inbox.length ? h('span', { class: 'count hot' }, String(inbox.length)) : null), allowAllButton(inbox.filter((i) => i.kind === 'permission' && !i.rule.startsWith('package:')).length)),
         inbox.length
           ? h('div', { class: 'stack' }, inbox.map((item, i) => (item.kind === 'idea' ? ideaCard(item, true, i) : item.kind === 'permission' ? permissionCard(item, true, i) : attentionCard(item, true, i))))
           : empty('check', 'Your desk is clear', 'Proposals and escalated tasks land here.')),
@@ -390,6 +390,26 @@ function rejectSheet(idea) {
   });
 }
 
+/** The package guard held an install back: the package exists but something about it looks wrong. */
+function packageCard(req, showProject, i = 0) {
+  const name = req.rule.slice(8);
+  const decide = (verb) => () => act(async () => {
+    await api('POST', `/api/permissions/${req.id}/${verb}`);
+    toast(verb === 'allow' ? `${name} is trusted on this project. The developer continues.` : `${name} stays out. The developer continues without it.`, 'check');
+  });
+  return h('article', { class: 'card decision enter', 'data-key': `perm${req.id}`, 'data-flip': `perm${req.id}`, style: `--i:${Math.min(i, 6)}` },
+    h('div', { class: 'decision-head' },
+      h('span', { class: 'tile xs bad' }, icon('alert')),
+      h('strong', null, 'Package guard'), `stopped ${req.agent_name ?? 'a developer'}`,
+      showProject ? h('span', { class: 'chip accent' }, req.project_name) : null,
+      h('span', null, ago(req.ts))),
+    h('h3', null, 'Trust the npm package ', h('span', { class: 'mono' }, name), '?'),
+    h('p', { class: 'pitch' }, `It exists on npm, but: ${req.example}. Look it up before you say yes: `, h('a', { href: `https://www.npmjs.com/package/${name}`, target: '_blank', rel: 'noopener' }, 'npmjs.com')),
+    h('div', { class: 'actions' },
+      h('button', { class: 'btn', onclick: decide('allow') }, icon('check'), 'Trust it'),
+      h('button', { class: 'btn go', onclick: decide('ignore') }, 'Keep it out')));
+}
+
 /** One press for every open permission request in view. */
 function allowAllButton(count, projectId) {
   if (!count) return null;
@@ -401,6 +421,7 @@ function allowAllButton(count, projectId) {
 
 /** A developer hit a command it may not run. One press lets the whole team use it on this project. */
 function permissionCard(req, showProject, i = 0) {
+  if (req.rule.startsWith('package:')) return packageCard(req, showProject, i);
   const decide = (verb) => () => act(async () => {
     await api('POST', `/api/permissions/${req.id}/${verb}`);
     toast(verb === 'allow' ? `Allowed ${ruleLabel(req.rule)}. The developer continues.` : `${ruleLabel(req.rule)} stays blocked. The developer continues without it.`, 'check');
@@ -510,6 +531,7 @@ function projectView(r) {
             h('span', { class: `chip ${active ? 'green' : ''}` }, h('span', { class: `dot ${active ? (summary.working ? 'busy' : 'on') : ''}` }), active ? 'Running' : 'Paused'),
             h('span', null, num(spend.runs), ' runs'),
             h('span', null, num(spend.usd, 'usd'), ' at API prices'),
+            p.guard ? h('span', { class: 'chip', title: 'Every npm install is checked before it runs' }, 'Package guard on') : null,
             repo.web && !repo.missing ? h('a', { class: 'chip', href: repo.web, target: '_blank', rel: 'noopener' }, repo.slug) : null))),
       h('div', { class: 'actions' },
         active
@@ -657,7 +679,7 @@ function projectView(r) {
             : h('div', { class: 'org-children' }, devs.map((d) => h('div', { class: `org-child${d.job ? ' live' : ''}` }, node('dev', d.name, 'Developer', d))))))),
       h('div', { class: 'split' },
         h('div', null,
-          h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length + permissions.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length + permissions.length)) : null), allowAllButton(permissions.length, p.id)),
+          h('div', { class: 'section-head' }, h('h2', null, 'Waiting for you', proposed.length + attention.length + permissions.length ? h('span', { class: 'count hot' }, String(proposed.length + attention.length + permissions.length)) : null), allowAllButton(permissions.filter((r) => !r.rule.startsWith('package:')).length, p.id)),
           proposed.length + attention.length + permissions.length
             ? h('div', { class: 'stack' }, permissions.map((r, i) => permissionCard(r, false, i)), attention.map((t, i) => attentionCard(t, false, i)), proposed.map((idea, i) => ideaCard(idea, false, i)))
             : inDesign.length
@@ -680,7 +702,7 @@ const MODEL_CHOICES = [['fable', 'Fable 5.2'], ['opus', 'Opus 5.5'], ['sonnet', 
 const MODEL_NAME = Object.fromEntries(MODEL_CHOICES);
 
 const COMMON_COMMANDS = ['python3', 'pytest', 'pip', 'node', 'npx', 'make', 'docker', 'curl', 'cargo', 'go', 'git push'];
-const ruleLabel = (rule) => rule.match(/^Bash\((.+) \*\)$/)?.[1] ?? rule;
+const ruleLabel = (rule) => (rule.startsWith('package:') ? rule.slice(8) : rule.match(/^Bash\((.+) \*\)$/)?.[1] ?? rule);
 
 /** What developers may run: by default whatever you already allow Claude Code, plus chips for this project. */
 function rulesEditor(p) {
@@ -840,6 +862,10 @@ function projectForm(p, devCount = 2) {
     h('label', { class: 'field' }, h('span', null, 'Mode'), select('permission_mode', [['acceptEdits', 'Edit files, run listed commands'], ['bypassPermissions', 'Skip all permission checks']], v.permission_mode),
       h('small', null, 'Skipping checks lets developers run any shell command. Use it only in a sandbox.')),
     p ? rulesEditor(p) : null,
+    p ? h('h3', null, 'Package guard') : null,
+    p ? h('div', { class: 'row2' },
+      h('label', { class: 'field' }, h('span', null, 'Check npm installs'), select('guard', [['1', 'On: check every package first'], ['0', 'Off']], p.guard ? '1' : '0'), h('small', null, 'Stops installs of packages that do not exist, and asks you about ones that look new or imitate a popular name.')),
+      h('label', { class: 'field' }, h('span', null, 'Trusted packages'), h('input', { name: 'trusted_packages', value: p.trusted_packages, placeholder: 'my-internal-tool, @my-company/ui' }), h('small', null, 'These skip the check. Trusting a package from a card adds it here.'))) : null,
     p ? h('label', { class: 'field' }, h('span', null, 'GitHub'), select('auto_push', [['1', 'Push each approved task to GitHub'], ['0', 'Do not push. I push myself']], p.auto_push ? '1' : '0'), h('small', null, 'Booardroom does the pushing with your account. Developers commit locally and never push.')) : null,
     h('h3', null, 'Models'),
     h('div', { class: 'row2' },

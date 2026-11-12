@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { IDEAS_SCHEMA, REVIEW_SCHEMA, CHAT_SCHEMA, chatPrompt, ideatePrompt, designPrompt, buildPrompt, revisePrompt, continuePrompt, reviewPrompt, summarizePrompt } from './prompts.js';
 import { createRoles } from './roles.js';
 import { parseRules, rulesFor, covered, claudeCodeRules, claudeCodeMode } from './permissions.js';
+import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_DEV_TOOLS =
   'Read,Edit,Write,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git add *),Bash(git commit *),Bash(npm test *),Bash(npm run *)';
@@ -12,6 +13,25 @@ const DESIGNER_TOOLS = 'Read,Glob,Grep,Skill';
 const PM_REVIEW_ALLOWED = 'Read,Glob,Grep,Bash(git status *),Bash(git diff *),Bash(git log *),Bash(git show *)';
 const OPEN = ['queued', 'in_progress', 'blocked', 'review', 'changes', 'escalated'];
 const DEV_NAMES = ['Ada', 'Linus', 'Grace', 'Dennis', 'Barbara', 'Ken', 'Margaret', 'Alan', 'Edsger', 'Radia', 'Donald', 'Katherine'];
+// The package guard: slopsquat-guard's check, vendored, run as a hook before every shell command of every agent.
+const GUARD_HOOK = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'vendor', 'slopsquat-guard', 'scripts', 'hook.mjs');
+// npm names start with a letter or digit, so nothing that looks like a command-line flag gets through.
+const PACKAGE_NAME = /^(@[a-z0-9][\w.-]*\/)?[a-z0-9][\w.-]*$/i;
+const trustedOf = (project) => String(project.trusted_packages || '').split(',').map((s) => s.trim()).filter((s) => PACKAGE_NAME.test(s));
+
+/** Reads the guard's verdict lines: packages that do not exist, and packages a person should look at. */
+export function parseGuard(text) {
+  const out = { blocked: [], review: [], notes: [] };
+  for (const line of String(text || '').split('\n')) {
+    const m = line.match(/^(BLOCK|CHECK)\s+(.*)$/);
+    if (!m) continue;
+    const named = m[2].match(/^((?:@[\w.-]+\/)?[\w.-]+):\s*(.*)$/);
+    if (!named) out.notes.push(m[2]);
+    else (m[1] === 'BLOCK' ? out.blocked : out.review).push({ name: named[1], why: named[2] });
+  }
+  return out;
+}
+
 // Model aliases the Claude Code CLI resolves to the newest model of each family. '' means the CLI's default.
 export const MODELS = ['', 'fable', 'opus', 'sonnet', 'haiku'];
 const clip = (s, n = 4000) => (s && s.length > n ? `${s.slice(0, n)}…` : s || '');
@@ -72,9 +92,49 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
   }
 
   /** A developer was denied a command. Ask the CEO once per rule whether the team may use it. */
+  /** Settings and environment that put the package guard in front of an agent's shell commands. */
+  function guardFor(project) {
+    if (!project.guard) return { settings: undefined, env: {} };
+    return {
+      settings: { hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(GUARD_HOOK)}`, timeout: 60 }] }] } },
+      env: {
+        // Nobody sits at a prompt during a run, so the guard refuses what it would otherwise ask about. The CEO is asked instead.
+        SLOPSQUAT_GUARD_STRICT: '1',
+        SLOPSQUAT_GUARD_ALLOW: [process.env.SLOPSQUAT_GUARD_ALLOW, ...trustedOf(project)].filter(Boolean).join(','),
+        ...(process.versions.electron ? { ELECTRON_RUN_AS_NODE: '1' } : {}),
+      },
+    };
+  }
+
+  /**
+   * The guard refused an install. A name that does not exist is only logged: the agent was told to find
+   * the real package. A package that exists but looks wrong becomes a question for the CEO.
+   * @returns {boolean} whether the run should stop and wait for that answer
+   */
+  function recordGuard(project, agent, task, denial) {
+    const verdict = parseGuard(denial.guard);
+    for (const b of verdict.blocked) emit(project.id, 'error', `The package guard stopped ${agent?.name ?? 'an agent'} from installing ${b.name}: ${b.why}.`, { taskId: task?.id, agentId: agent?.id });
+    for (const note of verdict.notes) emit(project.id, 'error', `The package guard refused an install: ${note}.`, { taskId: task?.id, agentId: agent?.id });
+    let wait = false;
+    for (const r of verdict.review) {
+      const rule = `package:${r.name}`;
+      const known = db.get('SELECT status FROM permission_requests WHERE project_id = ? AND rule = ?', project.id, rule);
+      if (!known) {
+        db.insert('permission_requests', { project_id: project.id, task_id: task?.id ?? null, agent_id: agent?.id ?? null, rule, example: clip(r.why, 400), ts: now() });
+        emit(project.id, 'error', `The package guard held back ${r.name}: ${r.why}. The CEO decides whether to trust it.`, { taskId: task?.id, agentId: agent?.id });
+      }
+      if (!known || known.status === 'pending') wait = true;
+    }
+    return wait;
+  }
+
   function recordDenials(project, agent, task, denials) {
     const have = toolsOf(project);
     for (const denial of denials) {
+      if (denial.guard) {
+        recordGuard(project, agent, task, denial);
+        continue;
+      }
       for (const rule of rulesFor(denial)) {
         if (covered(rule, have)) continue;
         if (db.get('SELECT id FROM permission_requests WHERE project_id = ? AND rule = ?', project.id, rule)) continue;
@@ -114,7 +174,11 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     const req = db.get('SELECT * FROM permission_requests WHERE id = ?', requestId);
     if (!req || req.status !== 'pending') throw new Error('This request is already decided.');
     db.update('permission_requests', requestId, { status: allow ? 'allowed' : 'ignored' });
-    if (allow) {
+    if (allow && req.rule.startsWith('package:')) {
+      const project = db.get('SELECT * FROM projects WHERE id = ?', req.project_id);
+      db.update('projects', req.project_id, { trusted_packages: [...new Set([...trustedOf(project), req.rule.slice(8)])].join(',') });
+      emit(req.project_id, 'ceo', `The CEO trusted the npm package ${req.rule.slice(8)}.`);
+    } else if (allow) {
       addRules(req.project_id, [req.rule]);
       emit(req.project_id, 'ceo', `The CEO allowed the team to use ${req.rule}.`);
     }
@@ -123,8 +187,9 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     const stillWaiting = req.task_id ? db.get("SELECT COUNT(*) AS n FROM permission_requests WHERE task_id = ? AND status = 'pending'", req.task_id).n : 0;
     if (task && !stillWaiting) {
       const answers = db.all("SELECT rule, status FROM permission_requests WHERE task_id = ? AND status != 'pending'", task.id);
-      const yes = answers.filter((a) => a.status === 'allowed').map((a) => a.rule);
-      const no = answers.filter((a) => a.status === 'ignored').map((a) => a.rule);
+      const say = (rule) => (rule.startsWith('package:') ? `the npm package ${rule.slice(8)}` : rule);
+      const yes = answers.filter((a) => a.status === 'allowed').map((a) => say(a.rule));
+      const no = answers.filter((a) => a.status === 'ignored').map((a) => say(a.rule));
       const note = [yes.length ? `Allowed now: ${yes.join(', ')}.` : '', no.length ? `Still blocked, by the CEO's decision: ${no.join(', ')}. Do not ask for these again.` : ''].filter(Boolean).join('\n');
       if (task.status === 'blocked') {
         setTask(task, { status: 'changes', resume_note: note });
@@ -138,11 +203,11 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     tick();
   }
 
-  /** Answers every open permission request at once, for one project or the whole company. */
+  /** Answers every open command request at once. Packages the guard held back are left for a decision each. */
   function allowAll(projectId) {
     const open = projectId
-      ? db.all("SELECT id FROM permission_requests WHERE status = 'pending' AND project_id = ? ORDER BY id", projectId)
-      : db.all("SELECT id FROM permission_requests WHERE status = 'pending' ORDER BY id");
+      ? db.all("SELECT id FROM permission_requests WHERE status = 'pending' AND rule NOT LIKE 'package:%' AND project_id = ? ORDER BY id", projectId)
+      : db.all("SELECT id FROM permission_requests WHERE status = 'pending' AND rule NOT LIKE 'package:%' ORDER BY id");
     for (const req of open) decidePermission(req.id, true);
     return open.length;
   }
@@ -186,6 +251,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     for (const key of ['model_pm', 'model_designer', 'model_dev']) {
       if (MODELS.includes(patch[key])) next[key] = patch[key];
     }
+    if (patch.guard !== undefined) next.guard = ['1', 'true', 1, true].includes(patch.guard) ? 1 : 0;
+    if (typeof patch.trusted_packages === 'string') next.trusted_packages = [...new Set(patch.trusted_packages.split(/[\s,]+/).filter((n) => PACKAGE_NAME.test(n)))].join(',');
     if (patch.auto_push !== undefined) next.auto_push = ['1', 'true', 1, true].includes(patch.auto_push) ? 1 : 0;
     if (patch.inherit_claude !== undefined) next.inherit_claude = ['1', 'true', 1, true].includes(patch.inherit_claude) ? 1 : 0;
     const int = (key, lo, hi) => {
@@ -375,8 +442,10 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
     bus.emit('change', { projectId: project.id });
 
     const ctx = { taskId: task?.id, agentId: agent?.id };
+    const guard = guardFor(project);
     const promise = Promise.resolve(github?.env().catch(() => ({})) ?? {}).then((env) => runner({
-      env,
+      env: { ...env, ...guard.env },
+      settings: guard.settings,
       ...options,
       kind,
       system: rolePrompt(agent?.role),
@@ -405,7 +474,8 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
         // The project may have been deleted while the run was in flight.
         if (db.get('SELECT id FROM projects WHERE id = ?', project.id)) {
           if (!res.ok && !res.paused) emit(project.id, 'error', `${agent?.name ?? 'Run'} failed: ${res.error}`, ctx);
-          if (kind === 'build' && res.denials?.length) recordDenials(db.get('SELECT * FROM projects WHERE id = ?', project.id), agent, task, res.denials);
+          const unseen = (res.denials ?? []).filter((d) => !d.seen);
+          if (kind === 'build' && unseen.length) recordDenials(db.get('SELECT * FROM projects WHERE id = ?', project.id), agent, task, unseen);
           onDone(res);
         }
         bus.emit('change', { projectId: project.id });
@@ -516,7 +586,10 @@ export function createOrchestrator({ db, budget, runner, bus, dataDir, configDir
         // A refused command stops the run on the spot. The CEO is asked, and the session resumes with the answer.
         onDenial(denial) {
           const now_ = db.get('SELECT * FROM projects WHERE id = ?', project.id);
-          if (!now_ || !needsDecision(now_, denial)) return false;
+          denial.seen = true; // handled here, so the end-of-run pass skips it
+          if (!now_) return false;
+          if (denial.guard) return recordGuard(now_, dev, task, denial);
+          if (!needsDecision(now_, denial)) return false;
           recordDenials(now_, dev, task, [denial]);
           return true;
         },

@@ -206,6 +206,10 @@ section > .intro { color: var(--text-2); max-width: 40rem; margin-top: 0.8rem; f
 .brakes dd { font-size: 0.93rem; color: var(--text-2); }
 .brakes dd strong { color: var(--ink); font-weight: 650; }
 
+.guard { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 2.5rem; margin-top: 2.2rem; align-items: start; }
+.guard .term pre b { color: #ff8a80; font-weight: 700; }
+.guard .brakes dt { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.06em; }
+section .intro a { color: inherit; text-underline-offset: 3px; }
 .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 2.2rem; border-top: 1px solid var(--line-strong); }
 .grid article { padding: 1.3rem 1.3rem 1.4rem 0; border-bottom: 1px solid var(--line); display: grid; gap: 0.4rem; align-content: start; }
 .grid article:not(:nth-child(3n + 1)) { padding-left: 1.3rem; border-left: 1px solid var(--line); }
@@ -234,7 +238,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
 
 @media (max-width: 860px) {
   .top nav { display: none; }
-  .window-body, .leash, .get, .mind { grid-template-columns: 1fr; }
+  .window-body, .leash, .get, .mind, .guard { grid-template-columns: 1fr; }
   .org { border-right: 0; border-bottom: 1px solid var(--line); }
   .flow, .grid { grid-template-columns: 1fr 1fr; }
   .flow li:nth-child(odd) { padding-left: 0; border-left: 0; }
@@ -269,6 +273,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
     <a href="#manager">The manager</a>
     <a href="#flow">How it works</a>
     <a href="#budget">Budget</a>
+    <a href="#guard">Safety</a>
     <a href="#features">Features</a>
   </nav>
   <a class="btn small primary" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Get it</a>
@@ -392,6 +397,30 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
       <article><span class="ico" data-icon="board"></span><h3>Stays on your machine</h3><p>The server listens on localhost only. Projects, tasks and logs live in one SQLite file in your user folder.</p></article>
       <article><span class="ico" data-icon="grid"></span><h3>Desktop app</h3><p>One window for macOS, Windows and Linux. The browser version runs from the same code.</p></article>
     </div>
+  </section>
+
+  <section class="wrap" id="guard">
+    <span class="label">Supply-chain safety</span>
+    <h2>Agents invent package names. Attackers register them.</h2>
+    <p class="intro">The attack is called slopsquatting: a model suggests a package that sounds right, someone has already published malware under that name, and an unattended agent installs it. Booardroom checks every package before any agent installs it.</p>
+    <div class="guard">
+      <div class="term">
+        <div class="term-bar"><span class="label">What a developer sees</span></div>
+<pre><span>$</span> npm install express react-pretty-state
+
+slopsquat-guard blocked this install.
+<b>BLOCK</b>  react-pretty-state: does not exist on the
+       registry (likely a hallucinated name)
+<span>Do not retry with another guessed name. Find the
+real package in the project docs or on npmjs.com.</span></pre>
+      </div>
+      <dl class="brakes">
+        <div><dt>Blocked</dt><dd><strong>The name does not exist.</strong> The install is refused and the developer is told to find the real package.</dd></div>
+        <div><dt>Asks you</dt><dd><strong>It exists but looks wrong.</strong> New on npm, almost no downloads, or one letter away from a popular name. The developer stops and you decide.</dd></div>
+        <div><dt>Always on</dt><dd><strong>The model cannot skip it.</strong> The check runs in front of every shell command, for every agent, on npm, pnpm, yarn and bun.</dd></div>
+      </dl>
+    </div>
+    <p class="intro" style="font-size:.9rem">The check is <a href="https://github.com/GracjanFilipek/slopsquat-guard" target="_blank" rel="noopener">slopsquat-guard</a>, our own open-source plugin for Claude Code. It is one layer of defence. It does not read package source code.</p>
   </section>
 
   <section class="wrap" id="team">

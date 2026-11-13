@@ -74,4 +74,4 @@ The **licensor** is the individual or entity offering these terms, and the **sof
 
 ---
 
-Required Notice: Copyright 2026 Gracjan Filipek (https://github.com/GracjanFilipek/Agent-Corp)
+Required Notice: Copyright 2026 Gracjan Filipek (https://github.com/GracjanFilipek/Boardroom)

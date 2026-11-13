@@ -76,6 +76,8 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 .hero p { font-size: clamp(1.05rem, 1.6vw, 1.22rem); color: var(--text-2); max-width: 38rem; }
 .cta { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin-top: 0.4rem; }
 .cta small { color: var(--text-3); font: 500 0.74rem var(--mono); margin-left: 0.4rem; }
+.cta small a { color: var(--text-2); text-underline-offset: 3px; }
+.cta small a:hover { color: var(--ink); }
 
 /* demo window */
 .window { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); overflow: hidden; }
@@ -167,6 +169,17 @@ svg.px { display: block; width: 100%; height: 100%; fill: currentColor; }
 .term-foot { padding: 0 1rem 1rem; }
 .term-foot .btn { background: var(--on-ink); color: var(--ink); border-color: var(--on-ink); }
 
+.ico-dl { width: 10px; height: 10px; }
+.downloads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.7rem; margin-top: 2.2rem; }
+.dl { display: grid; gap: 0.15rem; padding: 1rem 1.1rem; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); text-decoration: none; color: var(--ink); transition: border-color 150ms, transform 150ms var(--ease), background 150ms, color 150ms; }
+.dl .ico { width: 20px; height: 20px; margin-bottom: 0.5rem; }
+.dl strong { font-size: 1.02rem; letter-spacing: -0.01em; }
+.dl span:last-child { font: 500 0.7rem var(--mono); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-3); }
+.dl:hover { border-color: var(--ink); transform: translateY(-2px); }
+.dl.yours { background: var(--ink); color: var(--on-ink); border-color: var(--ink); order: -1; }
+.dl.yours span:last-child { color: color-mix(in srgb, var(--on-ink) 65%, transparent); }
+.dl.yours span:last-child::after { content: " · your system"; }
+
 /* sections */
 section { padding-block: 4.2rem 0; }
 section > h2 { font-size: clamp(1.6rem, 3.4vw, 2.4rem); line-height: 1.08; letter-spacing: -0.03em; font-weight: 720; max-width: 22ch; text-wrap: balance; margin-top: 0.7rem; }
@@ -241,6 +254,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
   .window-body, .leash, .get, .mind, .guard { grid-template-columns: 1fr; }
   .org { border-right: 0; border-bottom: 1px solid var(--line); }
   .flow, .grid { grid-template-columns: 1fr 1fr; }
+  .downloads { grid-template-columns: 1fr 1fr; }
   .flow li:nth-child(odd) { padding-left: 0; border-left: 0; }
   .flow li:nth-child(n + 3) { border-top: 1px solid var(--line); }
   .grid article:not(:nth-child(3n + 1)) { padding-left: 0; border-left: 0; }
@@ -276,7 +290,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
     <a href="#guard">Safety</a>
     <a href="#features">Features</a>
   </nav>
-  <a class="btn small primary" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Get it</a>
+  <a class="btn small primary" href="#get" data-download>Download</a>
 </header>
 
 <main id="top">
@@ -284,9 +298,9 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
     <h1>Bring a rough idea. The project manager works out the rest.</h1>
     <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a designer and up to twelve AI developers. You are the CEO: approve, reject, or step out.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Get Booardroom on GitHub</a>
+      <a class="btn primary" href="https://github.com/GracjanFilipek/Boardroom/releases/latest" data-download><span class="ico-dl" data-icon="handover"></span><span data-download-label>Download Booardroom</span></a>
       <a class="btn" href="#manager">Meet the manager</a>
-      <small>macOS, Windows, Linux</small>
+      <small id="others">macOS, Windows, Linux. Free for personal use.</small>
     </div>
   </div>
 
@@ -447,22 +461,29 @@ real package in the project docs or on npmjs.com.</span></pre>
 
   <section class="wrap" id="get">
     <span class="label">Get it</span>
-    <h2>Free for personal use, and on GitHub.</h2>
+    <h2>Download it, or run it from source.</h2>
+    <div class="downloads">
+      <a class="dl" data-os="mac" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-macOS-arm64.dmg"><span class="ico" data-icon="handover"></span><strong>macOS</strong><span>Apple Silicon, .dmg</span></a>
+      <a class="dl" data-os="mac-intel" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-macOS-x64.dmg"><span class="ico" data-icon="handover"></span><strong>macOS</strong><span>Intel, .dmg</span></a>
+      <a class="dl" data-os="windows" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-Windows.exe"><span class="ico" data-icon="handover"></span><strong>Windows</strong><span>64-bit, .exe</span></a>
+      <a class="dl" data-os="linux" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-Linux.AppImage"><span class="ico" data-icon="handover"></span><strong>Linux</strong><span>x86-64, .AppImage</span></a>
+    </div>
+    <p class="intro" style="font-size:.9rem">The installers are not code-signed yet. On Windows press “More info”, then “Run anyway”. On macOS open System Settings, Privacy &amp; Security, and press “Open Anyway” after the first try. Every build is listed on the <a href="https://github.com/GracjanFilipek/Boardroom/releases" target="_blank" rel="noopener">releases page</a>.</p>
     <div class="get">
       <div class="term">
-        <div class="term-bar"><span class="label">In a terminal</span><button type="button" id="copy">Copy</button></div>
-<pre id="cmd"><span>$</span> git clone https://github.com/GracjanFilipek/Agent-Corp.git booardroom
+        <div class="term-bar"><span class="label">Or from source</span><button type="button" id="copy">Copy</button></div>
+<pre id="cmd"><span>$</span> git clone https://github.com/GracjanFilipek/Boardroom.git booardroom
 <span>$</span> cd booardroom
 <span>$</span> npm install
 <span>$</span> npm run app
 <span>#</span> <span>or try it with canned agents, no Claude calls</span>
 <span>$</span> npm run app:demo</pre>
-        <div class="term-foot"><a class="btn" href="https://github.com/GracjanFilipek/Agent-Corp" target="_blank" rel="noopener">Open the repository</a></div>
+        <div class="term-foot"><a class="btn" href="https://github.com/GracjanFilipek/Boardroom" target="_blank" rel="noopener">Open the repository</a></div>
       </div>
       <ul class="needs">
-        <li><strong>Node 22.13 or newer.</strong> The server has no other dependencies.</li>
-        <li><strong>Claude Code, logged in.</strong> Agents run as <code>claude -p</code> under your own login, on a Pro or Max plan or an API key.</li>
+        <li><strong>Claude Code, logged in.</strong> Agents run as <code>claude -p</code> under your own login, on a Pro or Max plan or an API key. The installer contains Booardroom, not Claude.</li>
         <li><strong>A folder to work in.</strong> Point a project at a repository, or let Booardroom create an empty git workspace.</li>
+        <li><strong>From source only: Node 22.13 or newer.</strong> The installed app brings its own runtime.</li>
       </ul>
     </div>
   </section>
@@ -532,6 +553,30 @@ real package in the project docs or on npmjs.com.</span></pre>
     el.innerHTML = svg([...new Set(rows.join('').replace(/\./g, ''))].map((c) => `<path d="${runs(rows, c)}" fill="${colors[c] || FIXED[c]}"/>`).join(''));
   }
 
+  // Offer the installer for the visitor's system. Without script the buttons lead to the list of all builds.
+  (async () => {
+    const ua = navigator.userAgent;
+    const platform = navigator.userAgentData?.platform || navigator.platform || '';
+    let os = /Win/i.test(platform) || /Windows/i.test(ua) ? 'windows'
+      : /Mac/i.test(platform) && !/iPhone|iPad/i.test(ua) && navigator.maxTouchPoints < 2 ? 'mac'
+      : /Linux|X11/i.test(platform) && !/Android/i.test(ua) ? 'linux' : null;
+    // Chromium can say which chip a Mac has. Safari cannot, and most Macs in use are Apple Silicon.
+    if (os === 'mac') {
+      try {
+        const info = await navigator.userAgentData?.getHighEntropyValues?.(['architecture']);
+        if (info?.architecture === 'x86') os = 'mac-intel';
+      } catch {}
+    }
+    const mine = os && document.querySelector(`.dl[data-os="${os}"]`);
+    if (!mine) return; // a phone, or a system without a build: keep the generic buttons
+    mine.classList.add('yours');
+    const name = { windows: 'Windows', mac: 'macOS', 'mac-intel': 'macOS (Intel)', linux: 'Linux' }[os];
+    for (const link of document.querySelectorAll('[data-download]')) link.href = mine.href;
+    for (const label of document.querySelectorAll('[data-download-label]')) label.textContent = `Download for ${name}`;
+    const rest = [...document.querySelectorAll('.dl:not(.yours)')].map((a) => `<a href="${a.href}">${{ mac: 'Apple Silicon Mac', 'mac-intel': 'Intel Mac', windows: 'Windows', linux: 'Linux' }[a.dataset.os]}</a>`);
+    document.getElementById('others').innerHTML = `Free for personal use. Also for ${rest.join(', ')}.`;
+  })();
+
   // Budget cells.
   const cells = document.getElementById('cells');
   cells.innerHTML = '<i></i>'.repeat(10);
@@ -544,7 +589,7 @@ real package in the project docs or on npmjs.com.</span></pre>
   // Copy the commands.
   const copy = document.getElementById('copy');
   copy.addEventListener('click', async () => {
-    const text = 'git clone https://github.com/GracjanFilipek/Agent-Corp.git booardroom\ncd booardroom\nnpm install\nnpm run app';
+    const text = 'git clone https://github.com/GracjanFilipek/Boardroom.git booardroom\ncd booardroom\nnpm install\nnpm run app';
     try {
       await navigator.clipboard.writeText(text);
       copy.textContent = 'Copied';
@@ -566,7 +611,7 @@ real package in the project docs or on npmjs.com.</span></pre>
         if (entry.target.classList.contains('meter')) fillBudget();
       }
     }, { rootMargin: '0px 0px -8% 0px' });
-    const targets = document.querySelectorAll('section > .label, section > h2, section > .intro, .brief, .rounds li, .flow li, .grid article, .meter, .brakes div, .staff figure, .term, .needs li');
+    const targets = document.querySelectorAll('.dl, section > .label, section > h2, section > .intro, .brief, .rounds li, .flow li, .grid article, .meter, .brakes div, .staff figure, .term, .needs li');
     for (const el of targets) {
       if (el.getBoundingClientRect().top < innerHeight * 0.92) continue;
       el.classList.add('rv', 'pre');

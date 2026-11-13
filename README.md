@@ -33,11 +33,13 @@ npm run app:demo # same, with canned agents
 npm run dist     # builds an installer for your system into ./release
 ```
 
-### Installers for people who do not use git
+### Installers
 
-The repository builds its own installers on GitHub. Open the **Actions** tab, pick **Installers**, press **Run workflow**, and after about ten minutes download the `.exe` (Windows), `.dmg` (macOS) and `.AppImage` (Linux) from the run's page. Pushing a tag such as `v0.1.0` does the same and attaches the files to a Release, which gives you one download page to send people.
+Download the latest build for your system from the [releases page](https://github.com/GracjanFilipek/Boardroom/releases/latest): `Booardroom-Windows.exe`, `Booardroom-macOS-arm64.dmg` (Apple Silicon), `Booardroom-macOS-x64.dmg` (Intel) or `Booardroom-Linux.AppImage`. The website offers the right one for the visitor's system.
 
-The installers are not code-signed. Windows shows a SmartScreen warning ("More info", then "Run anyway"). macOS refuses to open the app on first try; right-click it and choose Open, or allow it under System Settings, Privacy & Security. Signing removes both warnings and needs a paid certificate from Microsoft and Apple.
+A new release is built by pushing a version tag such as `v0.1.0`. GitHub builds on Windows, macOS and Linux and attaches the files.
+
+The installers are not code-signed. Windows shows a SmartScreen warning ("More info", then "Run anyway"). macOS refuses the first open; allow it under System Settings, Privacy & Security, "Open Anyway". Signing removes both warnings and needs paid certificates from Microsoft and Apple.
 
 The person installing still needs Claude Code on their machine, logged in.
 

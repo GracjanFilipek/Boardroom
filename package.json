@@ -42,18 +42,22 @@
       "category": "public.app-category.developer-tools",
       "target": [
         "dmg"
-      ]
+      ],
+      "artifactName": "Booardroom-macOS-${arch}.${ext}",
+      "identity": "-"
     },
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "artifactName": "Booardroom-Windows.${ext}"
     },
     "linux": {
       "target": [
         "AppImage"
       ],
-      "category": "Development"
+      "category": "Development",
+      "artifactName": "Booardroom-Linux.${ext}"
     },
     "icon": "electron/icon.png"
   },

@@ -303,7 +303,7 @@ footer.wrap { margin-top: 5rem; border-top: 1px solid var(--line-strong); paddin
     <h1>Bring a rough idea. The project manager works out the rest.</h1>
     <p>Give an AI project manager a repository or one blunt sentence. It decides what to build, in what order and how, then keeps handing work to a designer and up to twelve AI developers. You are the CEO: approve, reject, or step out.</p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/GracjanFilipek/Boardroom" data-download><span class="ico-dl" data-icon="handover"></span><span data-download-label>Download Booardroom</span></a>
+      <a class="btn primary" href="https://github.com/GracjanFilipek/Boardroom/releases/latest" data-download><span class="ico-dl" data-icon="handover"></span><span data-download-label>Download Booardroom</span></a>
       <a class="btn" href="#manager">Meet the manager</a>
       <small id="others">macOS, Windows, Linux. Free for personal use.</small>
     </div>
@@ -468,10 +468,10 @@ real package in the project docs or on npmjs.com.</span></pre>
     <span class="label">Get it</span>
     <h2>Download it, or run it from source.</h2>
     <div class="downloads">
-      <a class="dl" data-os="mac" data-file="Booardroom-macOS-arm64.dmg" href="https://github.com/GracjanFilipek/Boardroom/releases"><span class="ico" data-icon="handover"></span><strong>macOS</strong><span>Apple Silicon, .dmg</span></a>
-      <a class="dl" data-os="mac-intel" data-file="Booardroom-macOS-x64.dmg" href="https://github.com/GracjanFilipek/Boardroom/releases"><span class="ico" data-icon="handover"></span><strong>macOS</strong><span>Intel, .dmg</span></a>
-      <a class="dl" data-os="windows" data-file="Booardroom-Windows.exe" href="https://github.com/GracjanFilipek/Boardroom/releases"><span class="ico" data-icon="handover"></span><strong>Windows</strong><span>64-bit, .exe</span></a>
-      <a class="dl" data-os="linux" data-file="Booardroom-Linux.AppImage" href="https://github.com/GracjanFilipek/Boardroom/releases"><span class="ico" data-icon="handover"></span><strong>Linux</strong><span>x86-64, .AppImage</span></a>
+      <a class="dl" data-os="mac" data-file="Booardroom-macOS-arm64.dmg" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-macOS-arm64.dmg"><span class="ico" data-icon="handover"></span><strong>macOS</strong><span>Apple Silicon, .dmg</span></a>
+      <a class="dl" data-os="mac-intel" data-file="Booardroom-macOS-x64.dmg" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-macOS-x64.dmg"><span class="ico" data-icon="handover"></span><strong>macOS</strong><span>Intel, .dmg</span></a>
+      <a class="dl" data-os="windows" data-file="Booardroom-Windows.exe" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-Windows.exe"><span class="ico" data-icon="handover"></span><strong>Windows</strong><span>64-bit, .exe</span></a>
+      <a class="dl" data-os="linux" data-file="Booardroom-Linux.AppImage" href="https://github.com/GracjanFilipek/Boardroom/releases/latest/download/Booardroom-Linux.AppImage"><span class="ico" data-icon="handover"></span><strong>Linux</strong><span>x86-64, .AppImage</span></a>
     </div>
     <p class="intro" style="font-size:.9rem">The installers are not code-signed yet. On Windows press “More info”, then “Run anyway”. On macOS open System Settings, Privacy &amp; Security, and press “Open Anyway” after the first try. Every build is listed on the <a href="https://github.com/GracjanFilipek/Boardroom/releases" target="_blank" rel="noopener">releases page</a>.</p>
     <div class="get">
@@ -558,8 +558,9 @@ real package in the project docs or on npmjs.com.</span></pre>
     el.innerHTML = svg([...new Set(rows.join('').replace(/\./g, ''))].map((c) => `<path d="${runs(rows, c)}" fill="${colors[c] || FIXED[c]}"/>`).join(''));
   }
 
-  // Offer the installer for the visitor's system. Links point at a file only once GitHub confirms the
-  // release has it, so a button never leads to a missing download.
+  // Offer the installer for the visitor's system as a direct download: the file starts downloading and the
+  // visitor stays here. GitHub is asked which files the latest release holds, and a link is withdrawn only
+  // when the answer says the file is not there.
   (async () => {
     const REPO = 'https://github.com/GracjanFilipek/Boardroom';
     const ua = navigator.userAgent;
